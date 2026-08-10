@@ -1,0 +1,73 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "docproof"
+version = "0.1.0"
+description = "Prove your documentation against your code. Deterministically, with receipts."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+keywords = ["documentation", "linter", "ci", "readme", "drift", "testing"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Documentation",
+    "Topic :: Software Development :: Quality Assurance",
+]
+# tomllib landed in 3.11. This is the only dependency and it disappears on any Python
+# that does not need it, so a modern install pulls in nothing at all.
+dependencies = ["tomli>=1.1.0; python_version < '3.11'"]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+    "mypy>=1.10",
+]
+
+[project.scripts]
+docproof = "docproof.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/docproof"]
+
+# **Say what goes in the sdist rather than letting the working directory decide.**
+# Hatchling's default is "everything git does not ignore", and `.gitignore` listed `.venv/`
+# while the build ran in `.venv-build/`. The first sdist built here was 2.2 MB and 549
+# files, of which 525 were pip, hatchling and colorama out of that virtualenv. Nothing
+# was wrong with the code; the artifact was a photograph of my machine. An explicit list
+# is the same on any machine, and cannot pick up a stray file that happens to be untracked.
+[tool.hatch.build.targets.sdist]
+include = ["src/", "tests/", "README.md", "LICENSE", "pyproject.toml"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.mypy]
+python_version = "3.10"
+files = ["src"]
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+# Only imported on 3.10, where it is a real dependency; on newer Pythons the guarded
+# branch is never taken and the package is legitimately absent.
+[[tool.mypy.overrides]]
+module = ["tomli"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+# Fixtures build throwaway git repositories. Keeping the base temp directory inside the
+# project means a test run never writes outside the tree it belongs to.
+addopts = "--basetemp=.pytest-tmp -q"
+testpaths = ["tests"]

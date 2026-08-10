@@ -1,0 +1,114 @@
+name: CI
+
+# The last job runs docproof on docproof. That is not a flourish: this tool's whole
+# argument is that a documentation check can be a required gate rather than an advisory
+# report, and a project making that argument while not gating on it would be making it
+# badly. `fetch-depth: 0` is there for the same reason the README says it is — without
+# history the path check cannot tell a deleted file from one that never existed, and it
+# reports that instead of guessing, which would make this job green and meaningless.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # `release.yml` runs this whole file before it publishes, rather than trusting that the
+  # last run on main is still true of the tagged commit.
+  workflow_call:
+
+jobs:
+  test:
+    name: Tests (${{ matrix.os }}, Python ${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: pip install -e ".[dev]"
+      # The fixtures build real git repositories and commit to them, so git needs an
+      # identity even though nobody will ever read these commits.
+      - name: Give git an identity for the fixtures
+        run: |
+          git config --global user.email "ci@example.invalid"
+          git config --global user.name "docproof CI"
+      - run: python -m pytest
+
+  lint:
+    name: Lint and types
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev]"
+      - run: python -m ruff check .
+      - run: python -m ruff format --check .
+      - run: python -m mypy
+
+  package:
+    name: The built artifact, installed and run
+    runs-on: ubuntu-latest
+    # Every other job installs `-e .` and runs out of the source tree, so none of them can
+    # see a packaging mistake. The first sdist built for this project was 2.2 MB and 549
+    # files: 525 of them were a virtualenv that happened to be sitting in the working
+    # directory under a name `.gitignore` did not match. The code was fine and the artifact
+    # was junk, and nothing in CI would have said so. This job builds, installs the wheel
+    # into an environment that has never seen the source, and runs the console script.
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install build
+      - run: python -m build
+
+      - name: The sdist contains what it is supposed to and nothing else
+        run: |
+          python - <<'PY'
+          import tarfile, pathlib
+          src = {p.as_posix() for p in pathlib.Path("src").rglob("*.py")}
+          names = tarfile.open(next(pathlib.Path("dist").glob("*.tar.gz"))).getnames()
+          inner = {n.split("/", 1)[1] for n in names if "/" in n}
+          missing = src - inner
+          assert not missing, f"sdist is missing source files: {sorted(missing)}"
+          stray = {n for n in inner if n.startswith((".venv", "dist/", "build/", ".git/"))}
+          assert not stray, f"sdist picked up files that are not the project: {sorted(stray)}"
+          print(f"sdist: {len(inner)} entries, all accounted for")
+          PY
+
+      - name: Install the wheel where the source is not importable
+        run: |
+          python -m venv /tmp/clean
+          /tmp/clean/bin/pip install dist/*.whl
+          # From `/`, so a stray `src/` on the path cannot be what answers the import.
+          cd / && /tmp/clean/bin/python -c "import docproof; print(docproof.__file__)"
+
+      - name: The installed console script runs against a real repository
+        run: |
+          git config --global user.email "ci@example.invalid"
+          git config --global user.name "docproof CI"
+          # Its own checkout: a real project with real history and a known answer.
+          /tmp/clean/bin/docproof --show-skips
+
+  self:
+    name: docproof on docproof
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e .
+      - run: python -m docproof.cli --show-skips

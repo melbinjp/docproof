@@ -1,0 +1,108 @@
+name: Release
+
+# **Nothing here can publish until one thing is done on pypi.org that only a human with
+# the account can do** — see `RELEASING.md`. Until then this workflow builds, checks and
+# then fails at the last step, which is the correct behaviour for a repository whose
+# release path has never been armed.
+#
+# There is deliberately **no API token anywhere**, not in a secret and not in a file.
+# Publishing uses PyPI trusted publishing: PyPI is told to trust this repository, this
+# workflow filename and this environment, and GitHub mints a short-lived OIDC token for
+# the one job that needs it. A leaked repository secret cannot exist if there is no secret.
+#
+# The trigger is a tag, not a push to main, because a release cannot be taken back. Merging
+# is reversible; `pip install docproof==0.1.0` resolving forever is not. The tag is the
+# deliberate act, and `check-release` exists to make sure it was deliberate about the right
+# commit — every failure it catches produces an artifact that looks perfectly fine.
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  check-release:
+    name: Tag, version and branch agree
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: The tag names the version the package actually carries
+        run: |
+          python - <<'PY'
+          import os, sys, tomllib, pathlib
+          tag = os.environ["GITHUB_REF_NAME"]
+          version = tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"]["version"]
+          if tag != f"v{version}":
+              sys.exit(f"::error::tag {tag} but pyproject.toml says {version}. "
+                       f"A release under the wrong number cannot be corrected, only superseded.")
+          print(f"{tag} matches pyproject.toml {version}")
+          PY
+
+      - name: The tagged commit is on main
+        run: |
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "${GITHUB_SHA}" origin/main; then
+            echo "::error::${GITHUB_REF_NAME} points at a commit that is not on main." >&2
+            echo "Publishing it would ship code that no merged branch contains." >&2
+            exit 1
+          fi
+          echo "Tagged commit is on main."
+
+  # The full suite, on every OS and Python the package claims to support, plus the job that
+  # builds the artifact and runs it from a clean install. A release is the one moment where
+  # "CI was green last week" is not good enough.
+  ci:
+    name: CI
+    needs: check-release
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    name: Build and check artifacts
+    needs: ci
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --upgrade pip build twine
+      - run: python -m build
+      # twine's check is about the description rendering on PyPI. It is the one defect
+      # that is invisible locally and permanent once uploaded.
+      - run: python -m twine check --strict dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-dist
+          path: dist/
+          if-no-files-found: error
+
+  publish-pypi:
+    name: Publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    # A GitHub environment, so a required reviewer can be added to it later and this
+    # becomes "ask me first" without touching the workflow.
+    environment:
+      name: pypi
+      url: https://pypi.org/p/docproof
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
