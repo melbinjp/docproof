@@ -164,16 +164,12 @@ def test_the_pygments_case_moduletype_subclass_getattr(make_repo: Callable[..., 
 
 
 def test_a_foreign_package_import_is_not_our_claim(make_repo: Callable[..., Path]) -> None:
-    repo = make_repo(
-        toolkit("```python\nfrom os import path\n```\n", {"toolkit/__init__.py": ""})
-    )
+    repo = make_repo(toolkit("```python\nfrom os import path\n```\n", {"toolkit/__init__.py": ""}))
     assert check(repo) == []
 
 
 def test_a_relative_import_in_docs_names_no_dotted_path(make_repo: Callable[..., Path]) -> None:
-    repo = make_repo(
-        toolkit("```python\nfrom . import something\n```\n", {"toolkit/__init__.py": ""})
-    )
+    repo = make_repo(toolkit("```python\nfrom . import something\n```\n", {"toolkit/__init__.py": ""}))
     assert check(repo) == []
 
 
