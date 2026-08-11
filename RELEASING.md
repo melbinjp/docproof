@@ -70,6 +70,6 @@ that checks documentation against reality should not fail its own check on relea
 
 ## What the version number claims
 
-`0.1.0` and `Development Status :: 3 - Alpha` are meant literally: two verifiers, `paths`
-and `cli-flags`, each measured against forty public repositories. The output format is not
-stable. Nothing here is more finished than that.
+`0.1.0` and `Development Status :: 3 - Alpha` are meant literally: four verifiers —
+`paths`, `cli-flags`, `versions`, `symbols` — each measured against the same forty public
+repositories. The output format is not stable. Nothing here is more finished than that.
