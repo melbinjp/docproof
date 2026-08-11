@@ -15,9 +15,15 @@ from .report import Report
 from .verifiers.base import Document, Verifier
 from .verifiers.cli_flags import DocumentedFlags
 from .verifiers.paths import DocumentedPaths
+from .verifiers.symbols import DocumentedSymbols
 from .verifiers.versions import DocumentedVersions
 
-ALL_VERIFIERS: tuple[type[Verifier], ...] = (DocumentedPaths, DocumentedFlags, DocumentedVersions)
+ALL_VERIFIERS: tuple[type[Verifier], ...] = (
+    DocumentedPaths,
+    DocumentedFlags,
+    DocumentedVersions,
+    DocumentedSymbols,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:

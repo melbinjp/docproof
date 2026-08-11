@@ -195,8 +195,34 @@ repositories document neither claim, and none of them is broken — so unlike `p
 nothing here is ordinary rather than evidence the extraction has died. Encoding that is the
 difference between a check and a check that fails half a healthy corpus.
 
-Symbols against the package are the obvious next one. The interesting part of this project
-is not the list of checks; it is the rule that a check may not guess.
+**`symbols`** — `from yourpkg import Thing` in the documentation, against what `yourpkg`
+actually defines, read from its source and never imported. The soundness problem here is a
+step past `versions`': there are three distinct ways Python lets an import succeed without
+the name ever being written down as a binding in the package's own source, and a checker
+that only knows one of them reports real, correct code as broken.
+
+* **Implicit submodule import.** `from PIL import Image` works because `PIL/Image.py`
+  exists as a file, whether or not `PIL/__init__.py` ever imports it.
+* **`__getattr__` (PEP 562), and the idiom that predates it.** pydantic's public API and
+  pygments' lexer and formatter registries are both built on a module that computes an
+  attribute when asked rather than binding it up front — pygments predates PEP 562 and
+  gets there by swapping in a `types.ModuleType` subclass, which is the same trick under a
+  different name. Either way, "not found" cannot be proven.
+* **`from ... import *`**, the identical incompleteness `versions`' extras table already
+  had to account for.
+
+Measured on the same forty repositories `versions` was: **1,859 documented imports from a
+project's own package, 1,428 resolved directly, 430 landed in one of the three categories
+above, and exactly one disagreement survived** — marshmallow's own upgrade guide, showing
+`from marshmallow import MarshallingError` to illustrate the API it removed in 3.0. That
+sentence is correct about the release it describes and always will be, which is what
+widened the historical-document list below to recognise upgrade and migration guides
+alongside changelogs, rather than adding a fourth escape hatch to this verifier for one
+document that was never making a current claim.
+
+Zero real findings is not this verifier having nothing to do — it is what running the same
+probe-first discipline as `versions` looks like on a harder problem: measure the corpus
+before writing the rule, and let the disagreements decide what the rule has to account for.
 
 ## Install and run
 
@@ -298,7 +324,8 @@ docproof/
 │   └── verifiers/
 │       ├── paths.py        the path check
 │       ├── cli_flags.py    the option check
-│       └── versions.py     the install-metadata check
+│       ├── versions.py     the install-metadata check
+│       └── symbols.py      the import check
 └── tests/
 ```
 

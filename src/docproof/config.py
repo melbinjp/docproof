@@ -38,9 +38,16 @@ SKIP_BLOCK = re.compile(r"<!--\s*docproof:\s*skip\s*(?:-->)?", re.IGNORECASE)
 # twenty repositories combined. Recognised by the conventional names rather than by
 # reading dates out of headings, because the convention is near-universal and a
 # misread heading would put the tool back to guessing.
+#
+# `upgrading` and `migrat(e|ion|ing)` joined the list after probing the `symbols`
+# verifier: marshmallow's `docs/upgrading.rst` shows `from marshmallow import
+# MarshallingError`, a class removed in 3.0, as an illustration of the *old* API a
+# reader is migrating away from. The sentence was true when written and stays true —
+# it is a statement about a past release, exactly like a changelog entry, and the only
+# reason it was not already caught is that "upgrading" was never on this list.
 _HISTORICAL_NAMES = (
     r"changelog | changes | history | news | releases? | release[-_ ]?notes"
-    r" | whatsnew | what[-_]s[-_]new"
+    r" | whatsnew | what[-_]s[-_]new | upgrad(?:e|ing) | migrat(?:e|ion|ing)"
 )
 # Matches the file's own name *and* any directory on the way to it. Pillow keeps its
 # release notes as `docs/releasenotes/2.3.2.rst`, one file per version, and all eight of
