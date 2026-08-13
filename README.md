@@ -108,23 +108,33 @@ The current version, run over forty well-known Python projects with full history
 | | |
 |---|---|
 | Repositories | 40 |
-| Documents read | 3,144 |
-| Claims examined | 4,551 |
-| — confirmed | 835 |
-| — **contradicted** | **7** |
-| — not judged, with a reason | 3,709 |
-| Of the 7: genuine | **4** |
-| Of the 7: wrong | **3** |
+| Documents read | 3,138 |
+| Claims examined | 6,736 |
+| — confirmed | 2,165 |
+| — **contradicted** | **5** |
+| — not judged, with a reason | 4,566 |
+| Of the 5: genuine | **2** |
+| Of the 5: wrong | **3** |
 
 Those are counted, not estimated. The large "not judged" column is the design working
 rather than failing — most of it is *"this repository has never had this path"*, which is
 what a tutorial's example looks like from the inside.
 
-That is not zero and this README is not going to round it to zero. The four genuine ones
-include click's `docs/contributing.md`, which tells contributors that
-`.github/workflows/test-flask.yaml` runs Flask's suite against every change. That workflow
-was deleted in April; the directory holds six others and not that one. The fourth is
-datasette's README telling readers it needs Python 3.8 when `pyproject.toml` requires 3.10.
+That is not zero and this README is not going to round it to zero. The two genuine ones:
+click's `docs/contributing.md` tells contributors that `.github/workflows/test-flask.yaml`
+runs Flask's suite against every change — that workflow was deleted in April, and the
+directory holds six others and not that one. And datasette's README tells readers it needs
+Python 3.8 when `pyproject.toml` requires 3.10.
+
+An earlier version of this table said **4** genuine, and the two it lost are worth the
+paragraph. bandit keeps documentation pages for plugins it removed years ago, and each
+opens with *"This plugin has been removed."* — deliberate tombstones, kept on purpose so
+old links keep resolving. Reporting a stale example path inside one is not finding drift;
+it is arguing with a decision the maintainers already made and wrote down. Pages that open
+by declaring their own subject removed are now treated like changelogs: history, not
+promises. The rule stayed narrow after reading every candidate in the corpus — *deprecated*
+is not *removed*, because a deprecated module still exists and its documentation still
+makes promises that can rot.
 
 **The three wrong ones are all the same thing**, and it is the honest limit of the design:
 *an illustration of the reader's project whose path happens to have existed here once.*

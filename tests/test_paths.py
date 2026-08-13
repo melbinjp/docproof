@@ -217,6 +217,39 @@ def test_a_bare_filename_is_not_judged_even_when_it_was_deleted(make_repo: Calla
     assert "bare filename" in detail
 
 
+def test_a_tombstone_page_describes_the_past():
+    """bandit keeps doc pages for plugins B109/B111 that open "This plugin has been
+    removed." — deliberate tombstones (their PR #864 added the sentence), kept so old
+    links resolve — and a stale example path inside one was reported as drift. pdm's
+    `docs/dev/benchmark.md` ("This page has been removed, please visit …") is the same
+    class. Deprecated is not removed: structlog's thread-local page documents a
+    deprecated module that still exists, still promises, and still deserves judgment.
+    """
+    from docproof.config import declares_removed
+
+    bandit = (
+        "----------------------------------------------\n"
+        "B109: password_config_option_not_marked_secret\n"
+        "----------------------------------------------\n"
+        "\n"
+        "This plugin has been removed.\n"
+    )
+    pdm = "# Benchmark\n\nThis page has been removed, please visit [elsewhere](x).\n"
+    assert declares_removed(bandit)
+    assert declares_removed(pdm)
+
+    structlog = "# Thread-local\n\nThe `structlog.threadlocal` module is deprecated as of 22.1.0.\n"
+    assert not declares_removed(structlog)
+
+    # A removal note about something else is a live page stating history.
+    scrapy = "Commands\n========\n\n(The ``scrapy deploy`` command has been removed in 1.0.)\n"
+    assert not declares_removed(scrapy)
+
+    # A declaration buried past the lede does not silence the whole page.
+    buried = "# Title\n" + "still here\n" * 20 + "This section has been removed.\n"
+    assert not declares_removed(buried)
+
+
 def test_a_changelog_describes_the_past(make_repo: Callable[..., Path]):
     """fastapi's release-notes.md alone produced 162 findings — more than every other
     document in twenty repositories combined. "0.68 moved `docs_src/websockets`" is

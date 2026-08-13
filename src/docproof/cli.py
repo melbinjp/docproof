@@ -8,7 +8,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from . import __version__
-from .config import Config, is_historical, opts_out, suppressed_lines
+from .config import Config, declares_removed, is_historical, opts_out, suppressed_lines
 from .docs import find_docs, read
 from .project import Project, find_root
 from .report import Report
@@ -76,6 +76,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             historical.append(relative)
             continue
         text = read(path)
+        if declares_removed(text):
+            historical.append(relative)
+            continue
         if opts_out(text):
             continue
         documents.append(Document(path=path, text=text, suppressed=suppressed_lines(text)))

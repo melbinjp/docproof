@@ -64,6 +64,34 @@ def is_historical(relative_path: str) -> bool:
     return bool(HISTORICAL.search(relative_path))
 
 
+# A page can also say it in prose rather than in its name. bandit keeps doc pages for
+# plugins B109 and B111 that open with "This plugin has been removed." — deliberate
+# tombstones, kept so old links keep resolving — and pdm's `docs/dev/benchmark.md` opens
+# "This page has been removed, please visit …". A stale example path inside such a page
+# is not drift; the page has already told its reader it describes something that no
+# longer exists.
+#
+# Narrow on purpose, from reading every candidate in the forty-repo corpus (a broad net
+# matched eleven lines; exactly two were tombstones). The subject must be
+# self-referential — "This page/plugin/module …" — and the verb must be *removed*.
+# Deprecated is not removed: structlog's thread-local page documents a deprecated module
+# that still exists, still makes promises, and still deserves judgment. A removal note
+# about something else ("The ``scrapy deploy`` command has been removed in 1.0") is a
+# live page stating history, not a tombstone.
+TOMBSTONE = re.compile(r"(?i)^[\s>*_-]{0,8}This\s+\w+\s+(?:has been|was)\s+removed\b")
+
+
+def declares_removed(text: str) -> bool:
+    """Whether a document opens by declaring its own subject removed.
+
+    Only the first ten non-blank lines are considered, for the same reason `opts_out`
+    stops at forty: a declaration buried where no reader would see it before trusting
+    the page should not silence the checker either.
+    """
+    lede = [line for line in text.split("\n") if line.strip()][:10]
+    return any(TOMBSTONE.match(line) for line in lede)
+
+
 @dataclass
 class Config:
     exclude: tuple[str, ...] = ()
