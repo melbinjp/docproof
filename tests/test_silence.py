@@ -10,6 +10,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from pathlib import Path
 
+from docproof.cli import main
 from docproof.config import Config, suppressed_lines
 from docproof.docs import find_docs, read
 from docproof.history import classify, sample_indices
@@ -122,6 +123,27 @@ def test_litecli_a_checkout_broken_since_clone_day_is_caught_first(
     assert verdict.kind is Silence.TREE_MISMATCH
     assert verdict.alarming
     assert "src/app.py" in verdict.detail
+
+
+def test_litecli_a_checkout_with_no_documents_at_all_still_alarms(
+    make_repo: Callable[..., Path],
+) -> None:
+    """The real litecli clone was worse than a mismatched README: the failed checkout
+    left no documents on disk at all, so the run ended at "nothing to prove" — exit 0,
+    forever. An empty run must ask HEAD before it calls the emptiness fine."""
+    repo = make_repo({"README.md": "The entry point is `src/app.py`.\n", "src/app.py": ""})
+    (repo / "README.md").unlink()
+    exit_code = main([str(repo)])
+    assert exit_code == 1
+
+
+def test_a_project_with_no_documentation_anywhere_has_nothing_to_prove(
+    make_repo: Callable[..., Path],
+) -> None:
+    """The ordinary empty case stays ordinary: nothing on disk, nothing at HEAD,
+    exit 0."""
+    repo = make_repo({"src/keep.py": ""})
+    assert main([str(repo)]) == 0
 
 
 # -- when history cannot answer -----------------------------------------------------------

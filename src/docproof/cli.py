@@ -10,7 +10,7 @@ from pathlib import Path
 from . import __version__
 from .config import Config, declares_removed, is_historical, opts_out, suppressed_lines
 from .docs import find_docs, read
-from .history import classify
+from .history import classify, vanished_documents
 from .project import Project, find_root
 from .report import Report
 from .verifiers.base import Document, Verifier
@@ -85,6 +85,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         documents.append(Document(path=path, text=text, suppressed=suppressed_lines(text)))
 
     if not documents:
+        # "No documentation" is ambiguous the same way a silent verifier is: the first
+        # broken checkout this tool found had no documents on disk at all, and "nothing
+        # to prove" was the wrong verdict for it. HEAD settles which case this is.
+        vanished = vanished_documents(project, config)
+        if vanished:
+            print(vanished)
+            return 1
         print(f"No documentation found under {project.root}. Nothing to prove.")
         return 0
 

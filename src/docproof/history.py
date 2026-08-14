@@ -194,6 +194,38 @@ def _extract(
     return [item.claim if isinstance(item, Finding) else item for item in items]
 
 
+def vanished_documents(project: Project, config: Config) -> str | None:
+    """Whether "no documentation found" is itself a broken checkout, with the receipt.
+
+    The whole-tree case of TREE_MISMATCH: the first broken clone this tool ever found
+    had no documents on disk at all — the checkout had failed on clone day and the run
+    that mattered never got past "nothing to prove". So an empty run asks HEAD the same
+    question a silent verifier asks it: if HEAD records documents the configuration
+    would have admitted and the disk yields none, the checkout is broken, not the docs
+    absent. Anything git cannot answer degrades to None — the plain "nothing to prove"
+    exit — because a directory that was never a repository is the ordinary case here.
+    """
+    git = Git(root=project.root)
+    if not git.available:
+        return None
+    try:
+        recorded = documents_from(
+            project.root,
+            blobs_at(project.root, "HEAD", doc_paths_at(project.root, "HEAD", config)),
+            config,
+        )
+    except GitReadError:
+        return None
+    if not recorded:
+        return None
+    example = project.relative(recorded[0].path)
+    return (
+        f"No documentation on disk, but HEAD records {len(recorded)} document(s) — "
+        f"e.g. `{example}`. The checkout does not match the repository: look for a "
+        f"failed checkout, or a sparse or filtered clone."
+    )
+
+
 def classify(
     project: Project, config: Config, verifier: Verifier, documents: list[Document]
 ) -> SilenceVerdict:
