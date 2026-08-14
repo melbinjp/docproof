@@ -52,6 +52,29 @@ def test_a_path_the_project_deleted_is_broken(make_repo: Callable[..., Path]):
     assert "deleted in" in detail and "Farewell" in detail
 
 
+def test_a_shallow_clone_says_so_rather_than_claiming_the_path_never_existed(
+    make_repo: Callable[..., Path],
+):
+    """A guard that only protects an explanation, which is why nothing was testing it.
+
+    Without history, `git.deleted` returns None for every path, so a shallow checkout
+    falls straight through to the "this repository has never had this path" skip. The
+    verdict is the same either way — nothing breaks, no alarm fires — and the tool tells
+    the reader something false about their project: it never had the file, when in truth
+    the clone was truncated. Found by disabling each guard in turn and seeing which ones
+    no test noticed; this was the only one.
+    """
+    repo = make_repo(
+        {"README.md": "The entry point is `src/pkg/main.py`.\n", "src/pkg/other.py": ""},
+        deleted={"src/pkg/main.py": "print('hi')\n"},
+        shallow=True,
+    )
+    verdict, detail = run(repo)["src/pkg/main.py"]
+    assert verdict is Verdict.SKIPPED
+    assert "no history" in detail and "fetch-depth: 0" in detail
+    assert "never had this path" not in detail
+
+
 def test_pytest_a_path_named_only_after_it_was_deleted_is_an_example(
     make_repo: Callable[..., Path],
 ):
