@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .model import Outcome
+from .model import Outcome, Silence
 from .project import Project
 
 TICK, CROSS, DASH, WARN = "ok", "BROKEN", "--", "!!"
@@ -42,9 +42,42 @@ class Report:
         return [o for o in self.outcomes if o.silent]
 
     @property
+    def stopped_checking(self) -> list[Outcome]:
+        """Silent outcomes whose silence history could not explain away.
+
+        Measured over 53 public repositories, failing on *every* silence fired five
+        alarms of which one was real. So only the classes with a receipt fail the run —
+        REGRESSED and TREE_MISMATCH — while NEVER and STOPPED are said quietly. An
+        unclassified silence (None) stays alarming: an Outcome built without asking
+        history keeps the old strict behaviour rather than acquiring a pass.
+        """
+        return [o for o in self.silent if o.silence is None or o.silence.alarming]
+
+    @property
     def exit_code(self) -> int:
-        """Non-zero when a claim is contradicted, or when a check stopped checking."""
-        return 1 if self.broken or self.silent else 0
+        """Non-zero when a claim is contradicted, or when a check demonstrably stopped
+        checking. Silence that history explains — never made such claims, or stopped on
+        purpose — does not gate."""
+        return 1 if self.broken or self.stopped_checking else 0
+
+    def _silence_line(self, outcome: Outcome) -> str:
+        """One line per silent verifier, toned by what its silence turned out to mean.
+
+        Quiet classes get the same `--` as an inapplicable verifier, because that is
+        what history showed them to be; the alarming classes get the warning marker and
+        their receipt. An outcome nobody classified keeps the original strict wording.
+        """
+        verdict = outcome.silence
+        if verdict is None:
+            return (
+                f"{WARN} {outcome.verifier}: applies here but found nothing to check. "
+                f"Either the documentation stopped mentioning these, or the extraction "
+                f"stopped matching. Both are worth a look; neither is a pass. If this "
+                f"project genuinely documents none, silence it with "
+                f'[tool.docproof] disable = ["{outcome.verifier}"].'
+            )
+        marker = WARN if verdict.alarming or verdict.kind is Silence.UNKNOWN else DASH
+        return f"{marker} {outcome.verifier}: found nothing to check — {verdict.detail}."
 
     def render(self, *, show_skips: bool = False) -> str:
         lines: list[str] = []
@@ -55,13 +88,7 @@ class Report:
                 lines.append(f"{DASH} {outcome.verifier}: not applicable — {outcome.reason}")
                 continue
             if outcome.silent:
-                lines.append(
-                    f"{WARN} {outcome.verifier}: applies here but found nothing to check. "
-                    f"Either the documentation stopped mentioning these, or the extraction "
-                    f"stopped matching. Both are worth a look; neither is a pass. If this "
-                    f"project genuinely documents none, silence it with "
-                    f'[tool.docproof] disable = ["{outcome.verifier}"].'
-                )
+                lines.append(self._silence_line(outcome))
                 continue
             summary = f"{outcome.checked} checked"
             if outcome.skipped:
@@ -96,8 +123,10 @@ class Report:
         lines.append("")
         if self.broken:
             lines.append(f"{self.broken} broken, {self.checked} checked, {self.skipped} not judged.")
-        elif self.silent:
-            lines.append(f"No contradictions, but {len(self.silent)} check(s) found nothing to check.")
+        elif self.stopped_checking:
+            lines.append(
+                f"No contradictions, but {len(self.stopped_checking)} check(s) stopped checking."
+            )
         else:
             lines.append(f"Nothing contradicted. {self.checked} claims checked, {self.skipped} not judged.")
             if self.skipped and not show_skips:

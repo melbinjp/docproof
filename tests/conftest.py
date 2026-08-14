@@ -45,6 +45,10 @@ def make_repo(tmp_path: Path) -> Callable[..., Path]:
 
         That second commit is the only thing that separates real drift from an
         illustration, so a fixture that cannot produce one cannot test the rule.
+
+        `shallow` hands back a depth-1 clone of the built repository instead of the
+        repository itself — a real shallow checkout, because "this clone has no
+        history" is a state git defines and only git can produce.
         """
         counter["n"] += 1
         repo = tmp_path / f"repo{counter['n']}"
@@ -78,6 +82,14 @@ def make_repo(tmp_path: Path) -> Callable[..., Path]:
 
         _git(repo, "add", "-A")
         _git(repo, "commit", "-q", "-m", "initial", "--no-gpg-sign")
+
+        if shallow:
+            # `--depth` only applies over a transport; a plain local-path clone
+            # hardlinks the object store and keeps full history, so the file:// URL
+            # is the whole point of this line.
+            clone = tmp_path / f"repo{counter['n']}-shallow"
+            _git(tmp_path, "clone", "-q", "--depth", "1", repo.as_uri(), str(clone))
+            return clone
         return repo
 
     return build

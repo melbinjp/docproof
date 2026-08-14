@@ -10,6 +10,7 @@ from pathlib import Path
 from . import __version__
 from .config import Config, declares_removed, is_historical, opts_out, suppressed_lines
 from .docs import find_docs, read
+from .history import classify
 from .project import Project, find_root
 from .report import Report
 from .verifiers.base import Document, Verifier
@@ -96,7 +97,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"No check matches {args.only}. Try --list.", file=sys.stderr)
         return 2
 
-    report = Report(project=project, outcomes=[cls().run(project, documents) for cls in chosen])
+    outcomes = []
+    for cls in chosen:
+        verifier = cls()
+        outcome = verifier.run(project, documents)
+        if outcome.silent:
+            # Silence alone is ambiguous between "never made such claims" and "the
+            # extraction broke", and only history can say which — see `history`.
+            outcome.silence = classify(project, config, verifier, documents)
+        outcomes.append(outcome)
+    report = Report(project=project, outcomes=outcomes)
     print(f"docproof {__version__} — {project.root.name}, {len(documents)} document(s)")
     if historical:
         # Printed, not swallowed. Dropping documents quietly is the same failure as

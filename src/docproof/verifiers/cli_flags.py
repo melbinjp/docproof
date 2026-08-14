@@ -123,8 +123,27 @@ class DocumentedFlags(Verifier):
     def check(self, project: Project, documents: Iterable[Document]) -> Iterator[Finding]:
         known = argparse_flags(project)
         known.names |= wrapper_flags(project)
-        commands = set(project.console_scripts)
-        package = project.name.replace("-", "_") if project.name else None
+        for claim in self.extract(project, documents):
+            yield self._judge(claim, known)
+
+    def extract(
+        self,
+        project: Project,
+        documents: Iterable[Document],
+        commands: set[str] | None = None,
+        package: str | None = None,
+    ) -> Iterator[Claim]:
+        """Every flag claim the documents make, before any judging.
+
+        `commands` and `package` decide which command lines are *this project's*; by
+        default they are read from the working pyproject. `history` passes the union of
+        today's names and a sampled era's, because a line written when the command had
+        its old name was a claim then and reading it back demands then's vocabulary.
+        """
+        if commands is None:
+            commands = set(project.console_scripts)
+        if package is None:
+            package = project.name.replace("-", "_") if project.name else None
 
         seen: set[tuple[str, str]] = set()
         for document in documents:
@@ -137,15 +156,12 @@ class DocumentedFlags(Verifier):
                         if key in seen:
                             continue
                         seen.add(key)
-                        yield self._judge(
-                            Claim(
-                                kind="cli-flag",
-                                subject=flag,
-                                doc=document.path,
-                                line=span.line,
-                                span=line.strip()[:120],
-                            ),
-                            known,
+                        yield Claim(
+                            kind="cli-flag",
+                            subject=flag,
+                            doc=document.path,
+                            line=span.line,
+                            span=line.strip()[:120],
                         )
 
     def _our_command_lines(self, span: Span, commands: set[str], package: str | None) -> Iterator[str]:

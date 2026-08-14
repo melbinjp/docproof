@@ -63,6 +63,58 @@ class Claim:
         return f"{path.as_posix()}:{self.line}"
 
 
+class Silence(str, Enum):
+    """What a verifier's silence turned out to mean, judged from this branch's history.
+
+    `Outcome.silent` names the condition; this names the diagnosis. Failing every silent
+    run was measured against 53 public repositories and produced five alarms of which one
+    was real: httpx documents its CLI as a screenshot and always has, twine's
+    `--repository-url` walked out of its README in 2019 along with the workflow it
+    described. An alarm that fires on healthy projects gets switched off, and then it is
+    not catching the thing it was switched on for. History tells the cases apart, the
+    same way it tells drift from illustration in `verifiers.paths`.
+    """
+
+    NEVER = "never"
+    """No sampled commit ever extracted a claim of this kind. Silence is this project's
+    steady state, not a regression. Quiet."""
+
+    STOPPED = "stopped"
+    """Claims used to extract, and none of their subjects survives in today's documents.
+    The project stopped making such claims; the last loud commit is the receipt. Quiet."""
+
+    REGRESSED = "regressed"
+    """A subject that used to extract still sits in today's documents, but extraction no
+    longer produces it. The format defeated the extraction — the one case this alarm
+    exists for. Fails the run."""
+
+    TREE_MISMATCH = "tree-mismatch"
+    """Extraction over what HEAD records finds claims; the working tree yields none. The
+    checkout does not match the repository. Found live the first time this classifier
+    ran: a clone silently broken since clone day by a tracked filename NTFS refuses.
+    Fails the run."""
+
+    UNKNOWN = "unknown"
+    """History could not answer — a shallow clone, no git, or a verifier whose extraction
+    cannot be re-run alone. Reported visibly; whether it fails the run is carried on the
+    verdict, not guessed from the kind."""
+
+
+@dataclass(frozen=True)
+class SilenceVerdict:
+    """A `Silence` with its receipt, and the one bit CI actually gates on.
+
+    `alarming` is carried explicitly rather than derived from `kind` because UNKNOWN
+    faces both ways: a shallow clone is the *environment* refusing to answer (exit 0,
+    with the fix named), while a verifier that cannot replay its extraction keeps the
+    old blanket-alarm behaviour until it can (exit 1, conservatively).
+    """
+
+    kind: Silence
+    detail: str
+    alarming: bool
+
+
 @dataclass(frozen=True)
 class Finding:
     """A claim, what checking it came to, and where the truth actually is.
@@ -94,6 +146,14 @@ class Outcome:
     Carried on the outcome rather than looked up from the verifier, so a report can be
     rendered from outcomes alone — which is what the tests, and any future JSON output,
     actually hold.
+    """
+
+    silence: SilenceVerdict | None = None
+    """What this verifier's silence means, once history has been asked — see `history`.
+
+    None when the outcome is not silent, or when nobody asked. A report treats an
+    unclassified silence as alarming, so constructing an Outcome by hand keeps the old
+    strict behaviour rather than quietly acquiring a pass.
     """
 
     @property

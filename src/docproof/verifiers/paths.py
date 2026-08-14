@@ -210,8 +210,23 @@ class DocumentedPaths(Verifier):
     describes = "files and directories the documentation points at"
 
     def check(self, project: Project, documents: Iterable[Document]) -> Iterator[Finding]:
-        seen: set[tuple[str, str]] = set()
         git = Git(root=project.root)
+        for item in self.extract(project, documents):
+            yield item if isinstance(item, Finding) else self._judge(project, item, git)
+
+    def extract(
+        self, project: Project, documents: Iterable[Document]
+    ) -> Iterator[Finding | Claim]:
+        """Every path claim the documents make, before any judging.
+
+        Yields `Claim`s ready for `_judge`, plus the occasional skip `Finding` where the
+        text announced a claim and then withheld it — an ambiguous diagram, a leaf drawn
+        above its own root. Those count as the document *making* claims, which is why
+        they are yielded rather than dropped: extraction alone is what `history` replays
+        over old snapshots to ask whether silence today is new, and a document that has
+        always been all ambiguous diagrams has always been loud.
+        """
+        seen: set[tuple[str, str]] = set()
         for document in documents:
             for span in spans(document.text):
                 # A directory diagram is read as a diagram: its leaves are only
@@ -252,16 +267,12 @@ class DocumentedPaths(Verifier):
                         if key in seen:
                             continue
                         seen.add(key)
-                        yield self._judge(
-                            project,
-                            Claim(
-                                kind="tree-path",
-                                subject=entry.path,
-                                doc=document.path,
-                                line=entry.line,
-                                span=entry.name,
-                            ),
-                            git,
+                        yield Claim(
+                            kind="tree-path",
+                            subject=entry.path,
+                            doc=document.path,
+                            line=entry.line,
+                            span=entry.name,
                         )
                     continue
 
@@ -274,14 +285,13 @@ class DocumentedPaths(Verifier):
                     if key in seen:
                         continue
                     seen.add(key)
-                    claim = Claim(
+                    yield Claim(
                         kind="path",
                         subject=token,
                         doc=document.path,
                         line=span.line,
                         span=span.text if not span.fenced else token,
                     )
-                    yield self._judge(project, claim, git)
 
     def _judge(self, project: Project, claim: Claim, git: Git) -> Finding:
         # `lstrip("./")` strips *characters*, not a prefix, so it turned `.poetry/plugins`
