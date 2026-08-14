@@ -143,7 +143,7 @@ def test_the_verifier_is_silent_when_it_finds_nothing(make_repo: Callable[..., P
 
 # --- rules that exist because a well-known repository proved them necessary -------
 #
-# Twenty public Python projects, 2026-08-06. The first run produced 187 findings and
+# Twenty public Python projects. The first run produced 187 findings and
 # every single one was wrong. Each test below is named for what produced it.
 
 
@@ -161,6 +161,24 @@ def test_output_in_a_transcript_is_not_a_claim(make_repo: Callable[..., Path]):
         deleted={"src/pkg/old.py": ""},
     )
     assert "src/pkg/old.py" not in run(repo)
+
+
+def test_a_path_the_reader_is_told_to_create_is_not_a_claim(make_repo: Callable[..., Path]):
+    """falcon's ASGI tutorial says `$ touch tests/__init__.py` — an instruction to the
+    reader to make that file in their own project. falcon happens to have deleted its own
+    tests/__init__.py in 2019, so the deleted-path receipt fires and the tutorial line
+    reads as falcon's drift. A `touch`/`mkdir` operand is created, never asserted to
+    pre-exist. Found out-of-sample, 2026-08-14; the common name is what made it bite."""
+    repo = make_repo(
+        {
+            "README.md": (
+                "Set up your tests:\n\n```console\n$ mkdir -p tests\n$ touch tests/__init__.py\n```\n"
+            ),
+            "src/pkg/keep.py": "",
+        },
+        deleted={"tests/__init__.py": ""},
+    )
+    assert "tests/__init__.py" not in run(repo)
 
 
 def test_a_github_slug_in_a_link_is_not_read_as_a_path(make_repo: Callable[..., Path]):

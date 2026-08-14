@@ -109,16 +109,29 @@ The current version, run over forty well-known Python projects with full history
 |---|---|
 | Repositories | 40 |
 | Documents read | 3,138 |
-| Claims examined | 6,736 |
+| Claims examined | 6,734 |
 | — confirmed | 2,165 |
 | — **contradicted** | **5** |
-| — not judged, with a reason | 4,566 |
+| — not judged, with a reason | 4,564 |
 | Of the 5: genuine | **2** |
 | Of the 5: wrong | **3** |
 
 Those are counted, not estimated. The large "not judged" column is the design working
 rather than failing — most of it is *"this repository has never had this path"*, which is
 what a tutorial's example looks like from the inside.
+
+**Held on thirteen repositories it was never tuned on.** The rules above were built against
+those forty. The honest test of a checker is a disjoint set, so it was then run over
+thirteen more (`starlette`, `sanic`, `aiohttp`, `anyio`, `cattrs`, `msgspec`, `invoke`,
+`bottle`, `pendulum`, `falcon`, `tornado`, `faker`, `paramiko`) — 321 documents, 709
+claims, 424 confirmed. That pass found **one real bug** — `anyio`'s install page said
+Python 3.8 while its `pyproject.toml` requires 3.10 — and **one false positive of a new
+kind**: `falcon`'s tutorial says `$ touch tests/__init__.py`, an instruction to the reader,
+and `falcon` happened to have deleted its own `tests/__init__.py` in 2019. The fix (a path
+that a `touch`/`mkdir` command *creates* is not a claim that it exists) was measured across
+all fifty-three repositories before it was written: seven such operands, every one a
+reader-project path, exactly one of them a live false positive. After it, the out-of-sample
+set is **zero false positives**, and these forty are unchanged.
 
 That is not zero and this README is not going to round it to zero. The two genuine ones:
 click's `docs/contributing.md` tells contributors that `.github/workflows/test-flask.yaml`

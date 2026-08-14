@@ -144,6 +144,12 @@ def looks_like_a_repo_path(text: str) -> bool:
 # this pattern the block was not a transcript and every line of it read as a command.
 PROMPT = re.compile(r"^\s*(?:[$#]\s+\S|>>>\s|\.\.\.\s|>\s+\S)")
 
+# Shell verbs that CREATE their path operands. A path a transcript tells the reader to
+# make is not a claim that it exists in the documented project. Restricted to touch and
+# mkdir, whose every operand is created; `cp`/`mv` are left out because their source can
+# be a path that must already exist.
+CREATES = re.compile(r"^(?:sudo\s+)?(?:touch|mkdir)\b")
+
 # `owner/repo` as it appears in a badge, a link or a clone URL. black's docs mention
 # `tqdm/tqdm`; that is a GitHub slug, not a directory called tqdm inside tqdm.
 URLISH = re.compile(r"(https?://|github\.com|gitlab\.com|\bgit@|\.git\b|\]\(|\bpip install\b)")
@@ -178,6 +184,16 @@ def candidates(span: Span) -> Iterator[str]:
     transcript = command_span(span)
     for line in span.text.split("\n"):
         if transcript and not PROMPT.match(line):
+            continue
+        if transcript and CREATES.match(re.sub(r"^\s*[$>]\s*", "", line)):
+            # `touch`/`mkdir` operands are paths the reader is told to CREATE in their
+            # own project, not claims that they exist in this one. falcon's tutorial
+            # says `$ touch tests/__init__.py`; falcon deleted its own
+            # tests/__init__.py in 2019, so without this the reader's instruction is
+            # read as the project's drift. Narrow to these two verbs on purpose — a
+            # `cp`/`mv` source can be a path that must already exist, so it is left
+            # judged. Measured over 53 repos: 7 such operands, every one a
+            # reader-project path, one of them a live false positive.
             continue
         if URLISH.search(line):
             continue
