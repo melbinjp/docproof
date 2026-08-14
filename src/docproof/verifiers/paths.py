@@ -386,6 +386,20 @@ class DocumentedPaths(Verifier):
             )
 
         commit, date, subject_line = removal
+
+        # **The receipt proves the event, not the relevance.** The repository really did
+        # delete this path — and the sentence may never have been about it. If this line
+        # was written after the deletion, its author typed the path knowing no such file
+        # was here, which makes it an example rather than a claim that rotted. See
+        # `Git.line_written_after` for the three public false positives that forced this.
+        if git.claim_introduced_after(project.relative(claim.doc), subject, commit):
+            return self.skip(
+                claim,
+                f"this document first mentioned it after {commit} ({date}) removed that "
+                f"path, so whoever wrote it knew the file was not here — an example, not "
+                f"a claim this repository stopped honouring",
+            )
+
         return self.broken(
             claim,
             f'deleted in {commit} ({date}, "{subject_line[:60]}") and never restored, '

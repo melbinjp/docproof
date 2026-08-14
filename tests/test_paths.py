@@ -35,14 +35,57 @@ def test_a_tracked_path_holds(make_repo: Callable[..., Path]):
 
 
 def test_a_path_the_project_deleted_is_broken(make_repo: Callable[..., Path]):
-    """The receipt is the commit that removed it."""
+    """The receipt is the commit that removed it.
+
+    The README is committed *before* the removal on purpose: that is what real drift is —
+    a sentence that was true when written and was broken by a later commit. Written the
+    other way round this test passed for years while asserting nothing, because both
+    fixture commits landed in the same second and the ordering check could not fire.
+    """
     repo = make_repo(
-        {"README.md": "The entry point is `src/pkg/main.py`.\n", "src/pkg/other.py": ""},
+        {"src/pkg/other.py": ""},
         deleted={"src/pkg/main.py": "print('hi')\n"},
+        documented_before={"README.md": "The entry point is `src/pkg/main.py`.\n"},
     )
     verdict, detail = run(repo)["src/pkg/main.py"]
     assert verdict is Verdict.BROKEN
     assert "deleted in" in detail and "Farewell" in detail
+
+
+def test_pytest_a_path_named_only_after_it_was_deleted_is_an_example(
+    make_repo: Callable[..., Path],
+):
+    """pytest's docs illustrate `--import-mode=append` with a `testing/__init__.py` tree.
+    pytest really did delete a file of that name — in 2010, eleven years before the
+    sentence was written. Whoever wrote it knew no such file was here, so it is an
+    example, and calling it drift puts a wrong patch in front of a maintainer."""
+    repo = make_repo(
+        {"README.md": "For example, a project may have `src/pkg/main.py`.\n", "src/pkg/other.py": ""},
+        deleted={"src/pkg/main.py": "print('hi')\n"},
+    )
+    verdict, detail = run(repo)["src/pkg/main.py"]
+    assert verdict is Verdict.SKIPPED
+    assert "first mentioned it after" in detail
+
+
+def test_click_a_claim_reworded_after_the_deletion_is_still_drift(
+    make_repo: Callable[..., Path],
+):
+    """The case that killed the obvious implementation. click's contributing docs named a
+    CI workflow deleted on 2026-04-03; the line was rewrapped on 2026-04-10, so `git
+    blame` dated the claim a week *after* the deletion and read a real finding as an
+    example. What matters is when the document first said it, not when the line was last
+    touched — here the claim predates the removal and survives a later edit."""
+    repo = make_repo(
+        {
+            "README.md": "The entry point, reworded later, is still `src/pkg/main.py`.\n",
+            "src/pkg/other.py": "",
+        },
+        deleted={"src/pkg/main.py": "print('hi')\n"},
+        documented_before={"README.md": "Entry point: `src/pkg/main.py`.\n"},
+    )
+    verdict, _detail = run(repo)["src/pkg/main.py"]
+    assert verdict is Verdict.BROKEN
 
 
 def test_a_path_the_project_never_had_is_not_judged(make_repo: Callable[..., Path]):

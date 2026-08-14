@@ -163,6 +163,77 @@ class Git:
             return None
         return parts[0], parts[1], parts[2]
 
+    def claim_introduced_after(self, doc: str, subject: str, commit: str) -> bool | None:
+        """Whether this document first mentioned `subject` *after* `commit` removed it.
+
+        **A receipt proves the event, not the relevance.** `deleted` establishes that the
+        repository once had a path and dropped it, and that fact is correctly computed —
+        but it says nothing about whether *this sentence* was ever about that file. Three
+        false positives found on 2026-08-15, checked against current upstream before they
+        became pull requests:
+
+        * pypa/build   `.github/workflows/build.yml`  captioning an example workflow the
+                                                      reader is told to create
+        * pytest       `testing/__init__.py`          a directory tree illustrating
+                                                      `--import-mode=append`
+        * tox          `tests/integration`            a sample tox config
+
+        Each names a path this repository really did delete — in 2020, 2010 and 2020 — so
+        history agreed, produced a dated commit, and made the wrong answer look rigorous.
+
+        The discriminator is authorship order: a document cannot have stopped being true
+        about a file that was already gone when the sentence was first written. Whoever
+        wrote it typed the path knowing no such file was here, which makes it an example.
+
+        **Ask when the document first said it, not when the line was last touched.** The
+        obvious implementation is `git blame` on the claim's line, and it is wrong — it
+        dates the last edit, and cosmetic edits re-date claims that are years old. It was
+        tried first and it broke the one true positive in this very set: click's line was
+        rewrapped on 2026-04-10, a week *after* the 2026-04-03 commit that deleted the
+        workflow, so blame called a real finding an example. The pickaxe (`log -S`) dates
+        the first commit that put this string into this document, which is the question
+        actually being asked. On the four cases:
+
+            repo    claim first written   file deleted    verdict
+            build   2026-03-06            2020-06-30      example
+            pytest  2021-03-12            2010-06-04      example
+            tox     2026-02-18            2020-10-27      example
+            click   2026-03-02            2026-04-03      REAL — pallets/click#3766
+
+        **Author dates, not ancestry.** Topological order looks like the rigorous choice
+        and answers a different question: it measures when the sentence *landed on this
+        branch*, not when its author wrote it. click's line was authored on 2026-03-02,
+        while the workflow still existed, and merged after the 2026-04-03 deletion — so
+        `merge-base --is-ancestor` reports the claim as newer than the removal and calls a
+        real finding an example. Every long-lived project merges work written weeks
+        earlier, so this is the common case, not a corner. What the rule needs to know is
+        what the author could see, and that is the author date.
+
+        `None` means unanswerable — no history, or a document whose mention does not
+        appear in this branch's record at all — and the caller keeps the verdict it
+        already had rather than acquiring a pass it did not earn.
+        """
+        if not self.available or self.shallow:
+            return None
+        code, out, _ = _run(
+            ["git", "log", "--reverse", "--format=%at", f"-S{subject}", "HEAD", "--", doc],
+            self.root,
+        )
+        if code != 0 or not out.strip():
+            return None
+        try:
+            introduced = int(out.strip().splitlines()[0])
+        except ValueError:
+            return None
+        code, out, _ = _run(["git", "show", "-s", "--format=%at", commit], self.root)
+        if code != 0 or not out.strip():
+            return None
+        try:
+            removed = int(out.strip().splitlines()[0])
+        except ValueError:
+            return None
+        return introduced > removed
+
     def ever_existed(self, path: str) -> bool:
         if not self.available or self.shallow:
             return False
