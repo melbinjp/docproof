@@ -349,6 +349,26 @@ def test_a_changelog_describes_the_past(make_repo: Callable[..., Path]):
     assert not is_historical("docs/changelog-policy.md")
 
 
+def test_an_archive_directory_describes_the_past(make_repo: Callable[..., Path]):
+    """`coollabsio/coolify` documents `scripts/coold-vm.sh` inside `docs/v5/archive/dev/`,
+    and the commit that deleted the script is named *"archive V5 implementation"* — the same
+    change that made the archive. Judging it reports a project for correctly describing what
+    it archived.
+
+    Narrow on purpose. The segment must BE `archive` or `archived`: `src/archiver/` is a
+    package that archives things and its docs are live, and `docs/architecture.md` merely
+    starts with the same letters. `deprecated/` is deliberately absent — one document in 134
+    repositories is not evidence, and `TOMBSTONE` already holds that deprecated is not
+    removed.
+    """
+    from docproof.config import is_historical
+
+    assert is_historical("docs/v5/archive/dev/coold-dev.md.txt")
+    assert is_historical("docs/archived/old-plan.md")
+    assert not is_historical("src/archiver/main.py")
+    assert not is_historical("docs/architecture.md")
+
+
 def test_a_dotted_directory_is_not_stripped_to_a_real_one(make_repo: Callable[..., Path]):
     """`lstrip("./")` strips characters, not a prefix.
 
@@ -509,4 +529,61 @@ def test_a_path_that_is_not_a_defined_label_is_still_judged(make_repo: Callable[
         documented_before={"README.md": readme},
     )
     verdict, _ = run(repo)["prow/cmd/tide"]
+    assert verdict is Verdict.BROKEN
+
+
+def test_the_wekan_case_a_page_labelled_obsolete_describes_the_past():
+    """`TOMBSTONE` needs a sentence with a subject; some pages use a LABEL instead.
+
+    `wekan/docs/Databases/Migrations/CODE_CHANGES_SUMMARY.md` opens
+    "> **OBSOLETE - historical record.** This documents the old cron-driven migration
+    system ... since removed", then documents `server/cronMigrationManager.js`, deleted in
+    `a440d44ea`. The page could not be clearer, and this reported it as drift.
+
+    Measured over 134 repositories: seven documents, all seven genuine, across flask,
+    gsd-core and wekan. Anchored at line start so a page merely *discussing* obsolete
+    formats keeps being judged.
+    """
+    from docproof.config import declares_removed
+
+    assert declares_removed("> **OBSOLETE - historical record.** This documents the old system.")
+    assert declares_removed("Obsolete, see /appcontext instead.")
+    assert declares_removed("# ADR 10\n\n- **Superseded:** 2026-05-13\n")
+    assert not declares_removed("# Guide\n\nThis page explains obsolete formats you may meet.\n")
+    assert not declares_removed("# Guide\n\nNormal live documentation.\n")
+
+
+def test_the_sparkyfitness_case_a_path_relative_to_a_package_root(make_repo: Callable[..., Path]):
+    """In a monorepo a documented path is often relative to the PACKAGE, not the repository.
+
+    `CodeWithCJ/SparkyFitness` documents `src/components/LanguageHandler.tsx`; it lives at
+    `SparkyFitnessFrontend/src/components/LanguageHandler.tsx`, and the next line of that
+    document spells the full path out. Read against the repository root the short form looks
+    deleted, so a correct sentence was reported as drift.
+
+    38 of the 134 cloned repositories (28%) have two or more nested package roots, so this
+    is more than a quarter of everything the tool gets pointed at.
+    """
+    repo = make_repo(
+        {
+            "README.md": "The handler is `src/components/Thing.tsx`.\n",
+            "frontend/package.json": '{"name":"frontend"}\n',
+            "frontend/src/components/Thing.tsx": "",
+            "pkg/a.py": "",
+        }
+    )
+    verdict, detail = run(repo)["src/components/Thing.tsx"]
+    assert verdict is Verdict.SKIPPED
+    assert "nested package roots" in detail
+
+
+def test_a_path_under_no_package_root_is_still_judged(make_repo: Callable[..., Path]):
+    """The recall this must not cost: only paths that actually resolve under a package root
+    get the benefit, so ordinary drift in a monorepo is still reported."""
+    repo = make_repo(
+        {"frontend/package.json": '{"name":"frontend"}\n', "frontend/src/keep.tsx": ""},
+        deleted={"tools/build.py": ""},
+        documented_before={"README.md": "Run `tools/build.py` first.\n"},
+    )
+    verdict, _ = run(repo)["tools/build.py"]
     assert verdict is Verdict.BROKEN

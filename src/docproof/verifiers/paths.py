@@ -509,6 +509,24 @@ class DocumentedPaths(Verifier):
                     f"`{root}/`, and a document naming the import path is still right",
                 )
 
+        # The same question one level out: in a monorepo, a documented path is often written
+        # relative to the PACKAGE rather than the repository. `CodeWithCJ/SparkyFitness`
+        # documents `src/components/LanguageHandler.tsx`, which lives at
+        # `SparkyFitnessFrontend/src/components/LanguageHandler.tsx` — and the next line of
+        # that document spells the full path out, so the short form is shorthand, not drift.
+        #
+        # 38 of the 134 cloned repositories (28%) have two or more nested package roots, so
+        # this is not a special case to tolerate; it is more than a quarter of everything the
+        # tool gets pointed at. See `Project.package_roots`.
+        for package in project.package_roots:
+            if git.tracks(f"{package}/{subject}"):
+                return self.skip(
+                    claim,
+                    f"tracked at `{package}/{subject}`. This repository has nested package "
+                    f"roots, and a document inside or about `{package}/` writes paths "
+                    f"relative to it rather than to the repository",
+                )
+
         removal = git.deleted(subject)
         if removal is None:
             return self.skip(

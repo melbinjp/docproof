@@ -53,9 +53,27 @@ _HISTORICAL_NAMES = (
 # release notes as `docs/releasenotes/2.3.2.rst`, one file per version, and all eight of
 # its findings came from there: the directory is the thing that says "this is history",
 # and the filenames never could.
+#
+# `archive/` and `archived/` join on the same reasoning as `changelog.d/`: the directory name
+# is the project saying, in the path, that what is inside has been retired.
+#
+# `coollabsio/coolify` documents `scripts/coold-vm.sh` inside `docs/v5/archive/dev/`, and the
+# commit that deleted the script is named *"archive V5 implementation and remove runtime
+# inte[gration]"* — the same change that created the archive. Judging it reports a project for
+# correctly describing what it archived.
+#
+# Measured across 134 repositories: 464 documents under `archived/` (gsd-core) and 129 under
+# `archive/` (coolify). Two repositories is a thin base for a rule, and it is taken anyway
+# because the semantics do not depend on the count — a directory called `archive` means what
+# the word means, and a project keeping live documentation there would be perverse.
+#
+# `deprecated/`, `legacy/` and `old/` are NOT included. `deprecated/` matched exactly one
+# document in the whole corpus and the other two matched none, which is not evidence; and
+# `TOMBSTONE` already draws the line that deprecated is not removed.
 HISTORICAL = re.compile(
     rf"(?ix) (^|/) (?: {_HISTORICAL_NAMES} ) (?: \.[a-z0-9]+ )? (?: / | $ )"
     rf" | (^|/) changelog\.d/ "
+    rf" | (^|/) archived? / "
 )
 
 
@@ -80,16 +98,34 @@ def is_historical(relative_path: str) -> bool:
 # live page stating history, not a tombstone.
 TOMBSTONE = re.compile(r"(?i)^[\s>*_-]{0,8}This\s+\w+\s+(?:has been|was)\s+removed\b")
 
+# The other way a page says it, which `TOMBSTONE` misses because there is no sentence: a
+# LABEL at the top of the document rather than a claim about a subject.
+#
+# `wekan/docs/Databases/Migrations/CODE_CHANGES_SUMMARY.md` opens
+# *"> **OBSOLETE — historical record.** This documents the old cron-driven migration system
+# … since **removed**"*. It then documents `server/cronMigrationManager.js`, deleted in
+# `a440d44ea`. The page could not be clearer about what it is, and this reported it as drift.
+#
+# Measured with the same discipline as `TOMBSTONE`, over 134 repositories: **seven documents,
+# all seven genuine** — flask's `reqcontext.rst` and `patterns/jquery.rst` ("Obsolete, see …
+# instead"), a superseded ADR in gsd-core, and four wekan migration records. Three separate
+# repositories, which is why this one is taken and the ADR-directory rule measured beside it
+# was not.
+#
+# `no longer used|maintained|accurate` matched NOTHING in the corpus and is therefore absent,
+# on the same rule that kept `deprecated/` out of `HISTORICAL`.
+RETIRED_LABEL = re.compile(r"(?i)^[\s>*_#-]{0,8}\**\s*(?:obsolete|superseded|historical\s+record)\b")
+
 
 def declares_removed(text: str) -> bool:
-    """Whether a document opens by declaring its own subject removed.
+    """Whether a document opens by declaring its own subject removed or retired.
 
     Only the first ten non-blank lines are considered, for the same reason `opts_out`
     stops at forty: a declaration buried where no reader would see it before trusting
     the page should not silence the checker either.
     """
     lede = [line for line in text.split("\n") if line.strip()][:10]
-    return any(TOMBSTONE.match(line) for line in lede)
+    return any(TOMBSTONE.match(line) or RETIRED_LABEL.match(line) for line in lede)
 
 
 # A code block can be shown precisely BECAUSE it is wrong — the API you are migrating off,
