@@ -101,14 +101,51 @@ jobs:
           /tmp/clean/bin/docproof --show-skips
 
   self:
-    name: docproof on docproof
-    runs-on: ubuntu-latest
+    # Through `uses: ./` rather than `pip install -e .`, so this job exercises the exact
+    # three lines the README tells a stranger to paste. The README carried
+    # `pipx run docproof` for weeks and it never worked once, because nothing was checking
+    # that the install instructions ran — which is the same defect class this tool exists
+    # to find, in this tool's own shopfront.
+    #
+    # Three OSes because `action.yml` claims to handle all three (a Windows venv puts its
+    # interpreter in `Scripts/`, not `bin/`), and a claim nobody runs is a guess.
+    name: docproof on docproof, through the action (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: actions/setup-python@v5
+      - uses: ./
         with:
-          python-version: "3.12"
-      - run: pip install -e .
-      - run: python -m docproof.cli --show-skips
+          show-skips: 'true'
+
+  action-refuses-a-truncated-clone:
+    # The guard is the only reason the action is safe to recommend, so it is tested against
+    # a checkout known to be shallow rather than assumed.
+    #
+    # Measured, on this repository's own corpus: `pallets/click` full clone reports
+    # `1 broken` and exits 1; the same repository cloned at `--depth 1` reports "Nothing
+    # contradicted" and exits **0**. `actions/checkout` defaults to depth 1, so without
+    # this guard the DEFAULT experience of adding docproof to CI is a permanently green
+    # check that has judged nothing. That is the failure this project keeps meeting from
+    # the other side, and it would have shipped it.
+    name: The action refuses a truncated clone
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4   # depth 1, deliberately: this is the case under test
+      - id: shallow
+        continue-on-error: true
+        uses: ./
+      - name: It has to have failed
+        run: |
+          if [ "${{ steps.shallow.outcome }}" != "failure" ]; then
+            echo "::error title=The shallow guard did not fire::docproof ran on a depth-1"\
+                 "checkout and reported success. A green run that judged nothing is the"\
+                 "one outcome this action must never produce."
+            exit 1
+          fi
+          echo "The guard fired, as it must."

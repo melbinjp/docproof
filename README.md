@@ -326,8 +326,21 @@ never existed — so `docproof` reports that and judges nothing rather than gues
 - uses: actions/checkout@v4
   with:
     fetch-depth: 0        # docproof needs history to tell drift from an example
-- run: pipx run docproof
+- uses: melbinjp/docproof@main
 ```
+
+**The action refuses to run without `fetch-depth: 0`, on purpose.** Measured on
+`pallets/click`: a full clone reports `1 broken` and exits 1, and the same repository
+cloned at `--depth 1` reports "Nothing contradicted" and exits **0**. Since
+`actions/checkout` gives you depth 1 unless you ask otherwise, a silent version of this
+check would hand you a permanently green gate that had judged nothing. It fails with the
+one-line fix in the message instead. CI here runs that refusal as a test.
+
+*This block used to read `pipx run docproof`, which never worked — docproof is not on PyPI,
+so there was nothing for pipx to resolve. It sat here for weeks because nothing was checking
+that the install instructions ran, which is precisely the defect this tool exists to find.
+The `self` job now installs through the action above, so the snippet cannot rot again
+without the build going red.*
 
 There are no dependencies at all on Python 3.11+; on 3.10 it installs `tomli` to read
 `pyproject.toml`.

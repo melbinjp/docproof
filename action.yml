@@ -1,0 +1,86 @@
+name: 'docproof'
+description: 'Check what your documentation claims against what the repository actually contains'
+author: 'The docproof Authors'
+branding:
+  icon: 'check-square'
+  color: 'purple'
+
+inputs:
+  path:
+    description: 'Project to check. Defaults to the checked-out repository.'
+    required: false
+    default: '.'
+  show-skips:
+    description: 'Also print every claim it declined to judge, and why.'
+    required: false
+    default: 'false'
+  only:
+    description: 'Run only these checks, comma separated. See `docproof --list`.'
+    required: false
+    default: ''
+
+runs:
+  using: 'composite'
+  steps:
+    # A truncated clone cannot tell a deleted file from one that never existed, so every
+    # path judgement becomes a skip. That is the documented behaviour and it is correct,
+    # but as a CI result it is the worst possible outcome: a green check that judged
+    # nothing, indistinguishable from a green check that judged everything.
+    #
+    # `actions/checkout` defaults to depth 1, so this is the common case rather than the
+    # unlucky one. Fail with the fix in the message.
+    - name: Require full history
+      shell: bash
+      run: |
+        cd "${{ inputs.path }}"
+        if [ "$(git rev-parse --is-shallow-repository 2>/dev/null)" = "true" ]; then
+          echo "::error title=docproof needs full history::This checkout is shallow, so"\
+               "docproof cannot tell a path the project deleted from one it never had, and"\
+               "would report a green run having judged nothing. Add fetch-depth: 0 to your"\
+               "actions/checkout step."
+          exit 1
+        fi
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    # Installed from the action's own checkout, NOT from PyPI. Three things follow, and
+    # the third is the reason:
+    #   - `uses: melbinjp/docproof@v1` pins the tool and the action to one commit, so the
+    #     version that runs is the version you pinned. There is no skew to reason about.
+    #   - It works today. docproof is not on PyPI yet, and a CI snippet that does not run
+    #     is exactly the defect this tool exists to find. The README carried
+    #     `pipx run docproof` for weeks; it never worked.
+    #   - A venv, because a composite action shares the runner with the caller's project
+    #     and has no business resolving against their dependency tree.
+    # `$HOME` rather than `$RUNNER_TEMP`, and `bin` OR `Scripts`, because this runs on
+    # windows-latest too and both differ there: the runner exports RUNNER_TEMP as a
+    # backslash path that bash mangles, and a Windows venv puts its interpreter in
+    # `Scripts/`. docproof's own CI is 3 OS x 4 Pythons; an action that only works on
+    # ubuntu would be a narrower claim than the tool it wraps.
+    - name: Install docproof
+      shell: bash
+      run: |
+        python -m venv "$HOME/.docproof-venv"
+        PY="$HOME/.docproof-venv/bin/python"
+        [ -x "$PY" ] || PY="$HOME/.docproof-venv/Scripts/python"
+        "$PY" -m pip install --quiet --upgrade pip
+        "$PY" -m pip install --quiet "${{ github.action_path }}"
+        echo "DOCPROOF_PYTHON=$PY" >> "$GITHUB_ENV"
+
+    # `-m docproof.cli` rather than the console script, so this does not also have to know
+    # where each platform puts entry points.
+    #
+    # Written as `if` blocks rather than `[ x ] && args+=(...)`, which is the shorter and
+    # wronger form: GitHub runs `shell: bash` as `bash -eo pipefail`, so a test that is
+    # simply FALSE is a non-zero exit and kills the step. The one-liner would have failed
+    # every run that did not ask for --show-skips, which is the default.
+    - name: Run docproof
+      shell: bash
+      run: |
+        args=()
+        if [ "${{ inputs.show-skips }}" = "true" ]; then args+=(--show-skips); fi
+        if [ -n "${{ inputs.only }}" ]; then args+=(--only "${{ inputs.only }}"); fi
+        "$DOCPROOF_PYTHON" -m docproof.cli "${{ inputs.path }}" ${args[@]+"${args[@]}"}
