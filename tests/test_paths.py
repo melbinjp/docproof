@@ -440,3 +440,35 @@ def test_a_path_merely_mentioned_is_still_judged(make_repo: Callable[..., Path])
     )
     verdict, _ = run(repo)["pkg/thing.py"]
     assert verdict is Verdict.BROKEN
+
+
+def test_the_bat_case_a_path_that_names_its_own_revision(make_repo: Callable[..., Path]):
+    """`git show v0.6.0:src/main.rs | bat -l rs` is correct forever.
+
+    sharkdp/bat's README shows how to read an old file with highlighting. `src/main.rs`
+    moved into `src/bin/` in 2019, so it is absent at HEAD — and the command still works,
+    because it reads from the tag named in the same breath as the path.
+
+    This test would have failed for the whole life of the first fix: the guard was written
+    through a shell heredoc and arrived as `r"\x08git\x08"`, a literal backspace byte
+    rather than a word boundary, so it never matched and the rule was inert. Nothing else
+    noticed, because a disabled rule breaks no test.
+    """
+    repo = make_repo(
+        {"src/bin/main.rs": ""},
+        deleted={"src/main.rs": ""},
+        documented_before={"README.md": "```bash\ngit show v0.6.0:src/main.rs | cat\n```\n"},
+    )
+    assert "src/main.rs" not in run(repo)
+
+
+def test_a_path_on_a_line_with_no_git_command_is_still_judged(make_repo: Callable[..., Path]):
+    """`x:y` is a mapping key, a port or a label everywhere else, so the rule is confined
+    to git lines. Confining it is what keeps ordinary drift reportable."""
+    repo = make_repo(
+        {"src/a.py": ""},
+        deleted={"pkg/thing.py": ""},
+        documented_before={"README.md": "See `pkg/thing.py`.\n"},
+    )
+    verdict, _ = run(repo)["pkg/thing.py"]
+    assert verdict is Verdict.BROKEN

@@ -82,6 +82,16 @@ silently skips everything looks exactly like a clean one.
 
 Two things, each done properly:
 
+**`paths` works on any repository, not just Python ones.** It reads documentation and git
+history, and neither is language-specific. The other three checks read `pyproject.toml` and
+say so when there isn't one, so pointing `docproof` at a Go or Rust project is not a
+degraded mode — it is the path check running and the rest abstaining, out loud.
+
+Measured, rather than hoped: sixteen well-known projects across Go, Rust, JavaScript, Ruby
+and PHP (cobra, gin, caddy, helm, ripgrep, bat, clap, express, axios, prettier, jekyll,
+sinatra, symfony/console and others) produced **one finding, fifteen clean, none errored** —
+a broken link in `prettier`'s contributor guide, pointing at a file deleted in January.
+
 **`paths`** — files and directories the documentation points at, including the leaves of
 ASCII directory diagrams.
 <!-- docproof: skip -->

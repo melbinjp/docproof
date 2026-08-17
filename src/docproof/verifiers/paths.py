@@ -180,8 +180,38 @@ CREATES_IN_PROSE = re.compile(
     r"[`'\"]{1,2}([\w.\-/]+)[`'\"]{1,2}"
 )
 
-# `owner/repo` as it appears in a badge, a link or a clone URL. black's docs mention
-# `tqdm/tqdm`; that is a GitHub slug, not a directory called tqdm inside tqdm.
+# A path that names the revision it lives in, which is a claim about THAT revision.
+#
+# `sharkdp/bat`'s README shows how to read an old file with highlighting:
+#
+#     git show v0.6.0:src/main.rs | bat -l rs
+#
+# `src/main.rs` moved into `src/bin/` in 2019, so it is absent at HEAD and the command is
+# still exactly correct — it reads from tag `v0.6.0`, where the file is. The revision is
+# stated in the same breath as the path.
+#
+# The pairing is destroyed one line below, by `:` being in the split class: `v0.6.0:src/main.rs`
+# arrives as two tokens and the second is judged against HEAD with nothing left to say where
+# it came from. So the pairs are read off the raw line first, before anything splits it.
+#
+# Measured across all 116 cloned repositories: **five occurrences, and they are the same
+# sentence in bat's README translated into five languages.** Every other `x:y` pair on a
+# `git` line in the whole corpus is an SSH clone URL (`git@github.com:owner/repo.git`),
+# which `URLISH` already drops. A tiny class, but a false positive is a false positive, and
+# this one would have gone to a 50k-star repository.
+REV_QUALIFIED = re.compile(r"(?<![\w:/.@-])[\w.\-]+:([\w.\-/]+)(?![\w:])")
+
+# Named rather than inlined, because the inline version of this was written through a shell
+# heredoc and arrived in the file as `r"\x08git\x08"` — `\b` collapsed into a literal
+# BACKSPACE byte instead of a word boundary. The guard could never match, `qualified` stayed
+# empty, and the rule above was inert. Every reading of the file looked correct, `grep`
+# printed the backspace as nothing, and the suite passed, because a silently-disabled rule
+# breaks no test. It was found only by printing `repr()` of the compiled source.
+#
+# That is the fourth instrument this week that reported success while unable to see, and the
+# third time a heredoc has eaten a backslash. Regexes are defined at module level here where
+# they can be read and tested, and edits to them do not go through a heredoc.
+GIT_COMMAND = re.compile(r"\bgit\b")
 URLISH = re.compile(r"(https?://|github\.com|gitlab\.com|\bgit@|\.git\b|\]\(|\bpip install\b)")
 
 
@@ -227,11 +257,16 @@ def candidates(span: Span) -> Iterator[str]:
             continue
         if URLISH.search(line):
             continue
+        # Read off the raw line, because the split below eats the colon that carries the
+        # meaning. Only on a git line: elsewhere `x:y` is a mapping key, a port, a label.
+        qualified = set()
+        if GIT_COMMAND.search(line):
+            qualified = {m.group(1) for m in REV_QUALIFIED.finditer(line)}
         for raw in re.split(r"[\s,;:'\"()\[\]]+", line):
             token = raw.strip().rstrip(".,;:")
             # Tree-drawing characters, comment markers and prompts.
             token = token.lstrip("│├└─#$>+*")
-            if token:
+            if token and token not in qualified:
                 yield token
 
 
