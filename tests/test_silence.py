@@ -49,9 +49,7 @@ def test_httpx_never_documented_flags_so_silence_is_its_steady_state(
 ) -> None:
     """httpx shows its CLI as a screenshot and always has. Its silence is not a
     regression, and failing it teaches people to switch the tool off."""
-    repo = make_repo(
-        {"pyproject.toml": PYPROJECT, "README.md": "A fine HTTP tool, shown as a picture.\n"}
-    )
+    repo = make_repo({"pyproject.toml": PYPROJECT, "README.md": "A fine HTTP tool, shown as a picture.\n"})
     project, documents = live(repo)
     verdict = classify(project, Config(), DocumentedFlags(), documents)
     assert verdict.kind is Silence.NEVER
@@ -155,9 +153,7 @@ def test_a_shallow_clone_cannot_be_judged_and_names_the_fix(
     """A CI checkout with `fetch-depth: 1` has no history to read. That is the
     environment refusing to answer, not the project misbehaving: visible, exit 0,
     and the message names the setting that fixes it."""
-    repo = make_repo(
-        {"pyproject.toml": PYPROJECT, "README.md": "Quiet on purpose.\n"}, shallow=True
-    )
+    repo = make_repo({"pyproject.toml": PYPROJECT, "README.md": "Quiet on purpose.\n"}, shallow=True)
     project, documents = live(repo)
     verdict = classify(project, Config(), DocumentedFlags(), documents)
     assert verdict.kind is Silence.UNKNOWN
@@ -173,7 +169,10 @@ def test_a_verifier_that_cannot_replay_extraction_keeps_the_old_alarm() -> None:
         name = "monolith"
 
     verdict = classify(
-        Project(root=Path(".")), Config(), Monolithic(), []  # type: ignore[arg-type]
+        Project(root=Path(".")),
+        Config(),
+        Monolithic(),
+        [],  # type: ignore[arg-type]
     )
     assert verdict.kind is Silence.UNKNOWN
     assert verdict.alarming
@@ -234,15 +233,14 @@ def test_extraction_is_check_minus_the_judging(make_repo: Callable[..., Path]) -
     project, documents = live(repo)
     verifier = DocumentedPaths()
     extracted = [
-        item.claim if isinstance(item, Finding) else item
-        for item in verifier.extract(project, documents)
+        item.claim if isinstance(item, Finding) else item for item in verifier.extract(project, documents)
     ]
     judged = [finding.claim for finding in verifier.check(project, documents)]
     assert extracted == judged
 
 
 def test_sampling_always_includes_both_ends() -> None:
-    """"Ever" and "still" are the words the classification turns on, so the newest and
+    """ "Ever" and "still" are the words the classification turns on, so the newest and
     oldest commits are never left out, whatever the total."""
     for total in (1, 2, 3, 7, 100, 5000):
         indices = sample_indices(total)

@@ -214,9 +214,7 @@ class DocumentedPaths(Verifier):
         for item in self.extract(project, documents):
             yield item if isinstance(item, Finding) else self._judge(project, item, git)
 
-    def extract(
-        self, project: Project, documents: Iterable[Document]
-    ) -> Iterator[Finding | Claim]:
+    def extract(self, project: Project, documents: Iterable[Document]) -> Iterator[Finding | Claim]:
         """Every path claim the documents make, before any judging.
 
         Yields `Claim`s ready for `_judge`, plus the occasional skip `Finding` where the

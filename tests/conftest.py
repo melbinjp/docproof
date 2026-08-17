@@ -94,14 +94,24 @@ def make_repo(tmp_path: Path) -> Callable[..., Path]:
         if deleted:
             _git(repo, "add", "-A")
             _git(
-                repo, "commit", "-q", "-m", "add what will later be removed",
-                "--no-gpg-sign", when=_EARLY,
+                repo,
+                "commit",
+                "-q",
+                "-m",
+                "add what will later be removed",
+                "--no-gpg-sign",
+                when=_EARLY,
             )
             for name in deleted:
                 _git(repo, "rm", "-q", name)
             _git(
-                repo, "commit", "-q", "-m", "Farewell, it was nice knowing you",
-                "--no-gpg-sign", when=_REMOVAL,
+                repo,
+                "commit",
+                "-q",
+                "-m",
+                "Farewell, it was nice knowing you",
+                "--no-gpg-sign",
+                when=_REMOVAL,
             )
 
         for name, contents in files.items():

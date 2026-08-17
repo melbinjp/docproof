@@ -62,9 +62,7 @@ def _run(root: Path, *args: str, stdin: bytes | None = None) -> bytes:
     give sizes in *bytes*, so slicing its output demands the raw stream.
     """
     try:
-        finished = subprocess.run(
-            ["git", *args], cwd=root, input=stdin, capture_output=True, timeout=TIMEOUT
-        )
+        finished = subprocess.run(["git", *args], cwd=root, input=stdin, capture_output=True, timeout=TIMEOUT)
     except (OSError, subprocess.SubprocessError) as error:
         raise GitReadError(f"{type(error).__name__}: {error}") from error
     if finished.returncode != 0:
@@ -156,9 +154,7 @@ def documents_from(root: Path, texts: dict[str, str], config: Config) -> list[Do
             continue
         if declares_removed(text) or opts_out(text):
             continue
-        documents.append(
-            Document(path=root / relative, text=text, suppressed=suppressed_lines(text))
-        )
+        documents.append(Document(path=root / relative, text=text, suppressed=suppressed_lines(text)))
     return documents
 
 

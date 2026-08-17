@@ -124,9 +124,7 @@ class Report:
         if self.broken:
             lines.append(f"{self.broken} broken, {self.checked} checked, {self.skipped} not judged.")
         elif self.stopped_checking:
-            lines.append(
-                f"No contradictions, but {len(self.stopped_checking)} check(s) stopped checking."
-            )
+            lines.append(f"No contradictions, but {len(self.stopped_checking)} check(s) stopped checking.")
         else:
             lines.append(f"Nothing contradicted. {self.checked} claims checked, {self.skipped} not judged.")
             if self.skipped and not show_skips:
