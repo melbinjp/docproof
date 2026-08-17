@@ -265,6 +265,16 @@ The `pip install docproof` line goes in when there is something on PyPI to insta
 tool whose whole argument is that documentation should be checkable does not get to open
 with an instruction that does not work.
 
+To run the suite, which is the thing worth checking before trusting any of the above:
+
+```bash
+pip install -e ".[dev]"
+pytest
+```
+
+`pip install -e .` alone gets you the tool but not `pytest`, so the extra is not optional
+if you want to verify rather than take this document's word for it.
+
 Exit code is `0` when nothing is contradicted, `1` when something is — or when a check
 that applies to your project found nothing at all to check, which means its extraction
 stopped matching and is not a pass either.
