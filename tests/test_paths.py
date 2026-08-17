@@ -472,3 +472,41 @@ def test_a_path_on_a_line_with_no_git_command_is_still_judged(make_repo: Callabl
     )
     verdict, _ = run(repo)["pkg/thing.py"]
     assert verdict is Verdict.BROKEN
+
+
+def test_the_kubernetes_case_a_reference_link_label_is_not_a_path(make_repo: Callable[..., Path]):
+    """`kubernetes/test-infra`'s README documents a move, correctly.
+
+        - [Deck](https://prow.k8s.io) shows what jobs are running ([`prow/cmd/deck`])
+        [`prow/cmd/deck`]: https://github.com/kubernetes-sigs/prow/tree/main/cmd/deck
+
+    Prow's source left the repository in 2024 and the README points at its new home. The
+    bracketed token is a link label; `URLISH` cannot see that, because the line where the
+    label is USED carries no URL at all. Without this the finding is a wrong pull request
+    to a Kubernetes repository.
+    """
+    readme = (
+        "Deck shows what jobs are running ([`prow/cmd/deck`]).\n\n"
+        "[`prow/cmd/deck`]: https://github.com/kubernetes-sigs/prow/tree/main/cmd/deck\n"
+    )
+    repo = make_repo(
+        {"src/a.py": ""},
+        deleted={"prow/cmd/deck/main.go": ""},
+        documented_before={"README.md": readme},
+    )
+    assert "prow/cmd/deck" not in run(repo)
+
+
+def test_a_path_that_is_not_a_defined_label_is_still_judged(make_repo: Callable[..., Path]):
+    """Only labels the document itself defines are skipped. Everything else is a claim."""
+    readme = (
+        "See `prow/cmd/tide` for the merge bot.\n\n"
+        "[`prow/cmd/deck`]: https://github.com/kubernetes-sigs/prow/tree/main/cmd/deck\n"
+    )
+    repo = make_repo(
+        {"src/a.py": ""},
+        deleted={"prow/cmd/tide/main.go": ""},
+        documented_before={"README.md": readme},
+    )
+    verdict, _ = run(repo)["prow/cmd/tide"]
+    assert verdict is Verdict.BROKEN

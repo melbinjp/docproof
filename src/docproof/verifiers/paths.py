@@ -212,6 +212,36 @@ REV_QUALIFIED = re.compile(r"(?<![\w:/.@-])[\w.\-]+:([\w.\-/]+)(?![\w:])")
 # third time a heredoc has eaten a backslash. Regexes are defined at module level here where
 # they can be read and tested, and edits to them do not go through a heredoc.
 GIT_COMMAND = re.compile(r"\bgit\b")
+
+# A markdown REFERENCE LINK label, which is a link and not a path.
+#
+# `kubernetes/test-infra`'s README:
+#
+#     - [Deck](https://prow.k8s.io) shows what jobs are running ([`prow/cmd/deck`])
+#     ...thirty lines later...
+#     [`prow/cmd/deck`]: https://github.com/kubernetes-sigs/prow/tree/main/cmd/deck
+#
+# Prow's source moved to another repository in 2024 and this README documents that move
+# correctly — the label points at the new home. `URLISH` cannot catch it, because the line
+# where the label is USED contains no URL; the URL is in a definition far below. Without
+# this, the finding is a wrong pull request to kubernetes/test-infra.
+#
+# The document defines the label itself, so there is nothing to infer. Measured across the
+# 134 cloned repositories: 15 documents, 10 path-shaped labels resolving to a URL and 24
+# resolving inside the repo (mostly the `[//]: #` comment idiom). A small class, and the one
+# it would have cost was expensive.
+#
+# The first version of this skipped the label only where it was USED, on the reasoning that
+# the definition line's target should still be judged. The findings moved from README.md:33
+# to README.md:65 — the definition lines — because what gets extracted there is the LABEL
+# again, not the target. A link target is bare text rather than backticked, so it was never
+# an inline span and was never being judged in the first place. The reasoning described
+# behaviour the tool does not have, and the fix is to skip the label wherever it appears.
+#
+# Judging reference-link targets that point inside the repo is a real feature and would find
+# broken internal links. It is not this, and pretending otherwise in a comment is how a file
+# ends up describing a tool nobody wrote.
+REF_DEFINITION = re.compile(r"(?m)^\[`?([^\]`]+)`?\]:\s*\S+")
 URLISH = re.compile(r"(https?://|github\.com|gitlab\.com|\bgit@|\.git\b|\]\(|\bpip install\b)")
 
 
@@ -292,6 +322,7 @@ class DocumentedPaths(Verifier):
         seen: set[tuple[str, str]] = set()
         for document in documents:
             lines = document.text.split("\n")
+            ref_labels = {m.group(1).strip() for m in REF_DEFINITION.finditer(document.text)}
             for span in spans(document.text):
                 # A directory diagram is read as a diagram: its leaves are only
                 # meaningful once indentation has been turned back into a full path.
@@ -350,6 +381,10 @@ class DocumentedPaths(Verifier):
                 source_line = lines[span.line - 1] if 0 < span.line <= len(lines) else span.text
                 for token in candidates(span):
                     if not looks_like_a_repo_path(token):
+                        continue
+                    # The document defines this as a reference-link label, so it is a link
+                    # and the definition says where it goes.
+                    if token in ref_labels:
                         continue
                     key = (project.relative(document.path), token)
                     if key in seen:
