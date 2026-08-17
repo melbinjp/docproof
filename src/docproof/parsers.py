@@ -77,6 +77,15 @@ class _Scan(ast.NodeVisitor):
         self.flags = flags
         self.where = where
         self.saw_parser = False
+        self.parser_names: set[str] = set()
+
+    def visit_Assign(self, node: ast.Assign) -> None:  # noqa: N802 - ast's naming
+        """Remember which names hold a parser, so handing one away can be noticed."""
+        if _is_parser_call(node.value):
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    self.parser_names.add(target.id)
+        self.generic_visit(node)
 
     def visit_Call(self, node: ast.Call) -> None:  # noqa: N802 - ast's naming
         if _is_parser_call(node):
@@ -84,6 +93,7 @@ class _Scan(ast.NodeVisitor):
             self.flags.files.add(self.where)
 
         func = node.func
+        self._check_handed_off(node, func)
         if isinstance(func, ast.Attribute) and func.attr == "add_argument":
             self._read_add_argument(node)
         elif isinstance(func, ast.Attribute) and func.attr == "parse_known_args":
@@ -95,6 +105,37 @@ class _Scan(ast.NodeVisitor):
             )
 
         self.generic_visit(node)
+
+    def _check_handed_off(self, node: ast.Call, func: ast.expr) -> None:
+        """A parser passed to something else can come back with options nothing here named.
+
+        This is the "handed to a helper" half of the module docstring's completeness rule,
+        which was documented and not implemented. mitmproxy builds its command line with
+        `opts.make_parser(parser, "mode", short="m")` - the flags come from an option
+        registry, not from any literal `add_argument`. Reading only the literals produced a
+        six-option set that looked authoritative, and `--mode` and `--certs`, which plainly
+        exist, came back contradicted in four of its documents at once.
+
+        Over-firing here is the safe direction and the module already prefers it: an
+        unnecessary incompleteness turns a possible finding into a missed one, never into a
+        wrong one, and a wrong one is a pull request against someone else's project.
+        """
+        holder = (
+            func.value.id
+            if isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name)
+            else None
+        )
+        for argument in [*node.args, *(keyword.value for keyword in node.keywords)]:
+            if not isinstance(argument, ast.Name) or argument.id not in self.parser_names:
+                continue
+            if argument.id == holder:
+                continue  # `parser.foo(parser)` is still the parser's own method
+            called = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", "a call")
+            self.flags.incomplete(
+                f"{self.where} passes the parser to {called}(), which can add options "
+                "no static read can name"
+            )
+            return
 
     def _read_add_argument(self, node: ast.Call) -> None:
         if any(isinstance(argument, ast.Starred) for argument in node.args):

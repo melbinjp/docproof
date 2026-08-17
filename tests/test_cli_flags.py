@@ -135,6 +135,27 @@ def test_a_parser_that_forwards_unknown_options_cannot_be_authoritative(
     assert "parse_known_args" in detail
 
 
+def test_a_parser_handed_to_a_helper_blocks_judgement(make_repo: Callable[..., Path]):
+    """mitmproxy registers its command line through `opts.make_parser(parser, "mode")`, so
+    the flags come from an option registry and not from any literal `add_argument`. Reading
+    only the literals produced a set that looked authoritative, and `--mode` and `--certs`,
+    which plainly exist, came back contradicted in four of its documents at once."""
+    parser = PARSER.replace(
+        "    return parser", '    registry.make_parser(parser, "mode")\n    return parser'
+    )
+    repo = make_repo(toolkit("Run `toolkit --mode transparent`.\n", parser=parser))
+    verdict, detail = check(repo)["--mode"]
+    assert verdict is Verdict.SKIPPED
+    assert "passes the parser to make_parser()" in detail
+
+
+def test_a_parser_s_own_methods_are_not_handing_it_away(make_repo: Callable[..., Path]):
+    """The guard above must not fire on ordinary use, or every argparse project becomes
+    unjudgeable and the verifier stops saying anything at all."""
+    repo = make_repo(toolkit("Run `toolkit --dry-run`.\n"))
+    assert check(repo)["--dry-run"][0] is Verdict.HOLDS
+
+
 def test_an_option_name_built_from_an_expression_blocks_judgement(
     make_repo: Callable[..., Path],
 ):
