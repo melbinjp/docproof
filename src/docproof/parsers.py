@@ -121,9 +121,7 @@ class _Scan(ast.NodeVisitor):
         wrong one, and a wrong one is a pull request against someone else's project.
         """
         holder = (
-            func.value.id
-            if isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name)
-            else None
+            func.value.id if isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name) else None
         )
         for argument in [*node.args, *(keyword.value for keyword in node.keywords)]:
             if not isinstance(argument, ast.Name) or argument.id not in self.parser_names:
@@ -132,8 +130,7 @@ class _Scan(ast.NodeVisitor):
                 continue  # `parser.foo(parser)` is still the parser's own method
             called = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", "a call")
             self.flags.incomplete(
-                f"{self.where} passes the parser to {called}(), which can add options "
-                "no static read can name"
+                f"{self.where} passes the parser to {called}(), which can add options no static read can name"
             )
             return
 

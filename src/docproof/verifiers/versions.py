@@ -120,23 +120,46 @@ class DocumentedVersions(Verifier):
         return None
 
     @staticmethod
-    def _extras(project: Project) -> tuple[set[str], bool]:
-        """(declared extras, whether that set is provably the complete one).
+    def _extras(project: Project) -> tuple[set[str], bool, str]:
+        """(declared extras, whether that set is provably the complete one, where they came from).
 
         Completeness is the same requirement the flags verifier needs and for the same
         reason: a set that might be incomplete can confirm a documented extra but can
         never contradict one. `dynamic` is the honest disqualifier — it says in the file
         that the real list is computed elsewhere, at build time, by code this never runs.
+
+        **`[project.optional-dependencies]` is not the only place extras are declared, and
+        assuming it was produced a wrong verdict against a real project.** `cohere-python`
+        has a `[project]` table AND declares its extras the legacy Poetry way, in
+        `[tool.poetry.extras]`. Reading only the first table, this called
+        `pip install 'cohere[oci]'` broken with the reason "declares no optional-dependencies
+        at all". The published cohere 7.0.8 carries `oci<3.0.0,>=2.165.0; extra == "oci"` in
+        its `requires_dist`, so the command works and the tool was simply wrong.
+
+        That is the worst failure this tool has: not a missed contradiction but an invented
+        one, against a company's README, in the form of a confident sentence about a table.
+        So the reason string now names the table the answer actually came from — if a third
+        declaration site turns up, the report says which one was consulted rather than
+        implying a file that was never read.
         """
         metadata = project.metadata
         dynamic = metadata.get("dynamic")
         if isinstance(dynamic, list) and "optional-dependencies" in dynamic:
-            return set(), False
+            return set(), False, "[project.optional-dependencies]"
         table = metadata.get("optional-dependencies")
         if isinstance(table, dict):
-            return {normalise(k) for k in table if isinstance(k, str)}, True
-        # No table and not dynamic: the complete set is genuinely the empty one.
-        return set(), True
+            return (
+                {normalise(k) for k in table if isinstance(k, str)},
+                True,
+                "[project.optional-dependencies]",
+            )
+        poetry = project.pyproject.get("tool", {})
+        poetry = poetry.get("poetry", {}) if isinstance(poetry, dict) else {}
+        legacy = poetry.get("extras") if isinstance(poetry, dict) else None
+        if isinstance(legacy, dict):
+            return ({normalise(k) for k in legacy if isinstance(k, str)}, True, "[tool.poetry.extras]")
+        # Neither table and not dynamic: the complete set is genuinely the empty one.
+        return set(), True, "[project.optional-dependencies]"
 
     def check(self, project: Project, documents: Iterable[Document]) -> Iterator[Finding]:
         yield from self._check_python(project, documents)
@@ -224,7 +247,7 @@ class DocumentedVersions(Verifier):
         dist = project.name
         if not dist:
             return
-        declared, complete = self._extras(project)
+        declared, complete, where = self._extras(project)
         ours = normalise(dist)
 
         for document in documents:
@@ -247,7 +270,7 @@ class DocumentedVersions(Verifier):
                                 span=command.strip(),
                             )
                             if normalise(extra) in declared:
-                                yield self.holds(claim, "declared in [project.optional-dependencies]")
+                                yield self.holds(claim, f"declared in {where}")
                             elif not complete:
                                 yield self.skip(
                                     claim,
@@ -258,13 +281,15 @@ class DocumentedVersions(Verifier):
                             elif declared:
                                 yield self.broken(
                                     claim,
-                                    f"[project.optional-dependencies] declares "
+                                    f"{where} declares "
                                     f"{sorted(declared)} and not `{extra}`, so this "
                                     f"install command fails for the reader who copies it",
                                 )
                             else:
                                 yield self.broken(
                                     claim,
-                                    "pyproject.toml declares no optional-dependencies at "
-                                    "all, so there is no extra this command could install",
+                                    "pyproject.toml declares no extras in either "
+                                    "[project.optional-dependencies] or "
+                                    "[tool.poetry.extras], so there is no extra this "
+                                    "command could install",
                                 )

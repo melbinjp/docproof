@@ -375,3 +375,68 @@ def test_a_file_that_moved_under_src_did_not_vanish(make_repo: Callable[..., Pat
     verdict, detail = run(repo)["pkg/thing.py"]
     assert verdict is Verdict.SKIPPED
     assert "moved it under" in detail
+
+
+def test_the_posthog_case_an_empty_directory_is_not_a_deleted_one(make_repo: Callable[..., Path]):
+    """Git stores files, not directories, so it cannot tell empty from absent.
+
+    `PostHog/posthog-python`'s RELEASING.md says changesets must live in
+    `.sampo/changesets/`. The last file under it was deleted in `0fc7ec6` — the release bot
+    consuming a changeset on the v7.39.1 release, which is the directory's normal lifecycle,
+    not its removal. The sentence says where `sampo add` PUTS files and is still true.
+    """
+    repo = make_repo(
+        {".sampo/config.toml": "", "src/a.py": ""},
+        deleted={".sampo/changesets/gallant-prince-ukko.md": ""},
+        documented_before={"README.md": "Changesets must live in `.sampo/changesets/`.\n"},
+    )
+    verdict, detail = run(repo)[".sampo/changesets/"]
+    assert verdict is Verdict.SKIPPED
+    assert "empty one is indistinguishable" in detail
+
+
+def test_a_directory_whose_whole_tree_went_is_still_broken(make_repo: Callable[..., Path]):
+    """The recall this must not cost: requiring the PARENT to be tracked is what keeps a
+    genuinely removed directory tree reportable.
+
+    The README goes in `documented_before` so it exists on the far side of the removal.
+    Written as an ordinary file it lands in the last commit and `claim_introduced_after`
+    calls it an example — a skip this rule had nothing to do with, and a test that would
+    have passed while asserting nothing.
+    """
+    repo = make_repo(
+        {"src/a.py": ""},
+        deleted={"oldpkg/plugins/keep.py": ""},
+        documented_before={"README.md": "See `oldpkg/plugins/`.\n"},
+    )
+    verdict, _ = run(repo)["oldpkg/plugins/"]
+    assert verdict is Verdict.BROKEN
+
+
+def test_the_hypothesis_case_a_path_the_reader_is_told_to_create(make_repo: Callable[..., Path]):
+    """`CREATES` already knew this shape for shell transcripts; prose was uncovered.
+
+    hypothesis's `CONTRIBUTING.rst:12` says *"Create ``hypothesis/RELEASE.rst``"* — a
+    changelog fragment every contributor creates and every release consumes, deleted in
+    `6384deef4` while bumping to 6.165.10. The deletion is the file's lifecycle. pipx and
+    twine document the same towncrier workflow and would have gone the same way.
+    """
+    repo = make_repo(
+        {"src/a.py": ""},
+        deleted={"pkg/RELEASE.rst": ""},
+        documented_before={"README.md": "2. Create `pkg/RELEASE.rst` with a release type.\n"},
+    )
+    verdict, detail = run(repo)["pkg/RELEASE.rst"]
+    assert verdict is Verdict.SKIPPED
+    assert "tells the reader to CREATE" in detail
+
+
+def test_a_path_merely_mentioned_is_still_judged(make_repo: Callable[..., Path]):
+    """The rule keys on the verb governing THIS path, not on the word appearing nearby."""
+    repo = make_repo(
+        {"src/a.py": ""},
+        deleted={"pkg/thing.py": ""},
+        documented_before={"README.md": "Create an account, then read `pkg/thing.py`.\n"},
+    )
+    verdict, _ = run(repo)["pkg/thing.py"]
+    assert verdict is Verdict.BROKEN

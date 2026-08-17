@@ -170,6 +170,53 @@ def _package_roots(project: Project) -> dict[str, Path]:
     return roots
 
 
+def _built_extension_modules(project: Project) -> set[str]:
+    """Dotted names of modules this project BUILDS rather than writes as `.py`.
+
+    **Why this is not an edge case.** `temporalio.bridge.temporal_sdk_bridge` is a Rust
+    module. It appears in no `.py` file and, in a fresh clone, as no file at all — it comes
+    into existence when maturin compiles it. Judging by the source tree alone, this called
+    the Temporal SDK's own README broken for importing it.
+
+    The project is not silent about this; it is declared, in the build backend's table, at
+    `pyproject.toml` `[tool.maturin] module-name`. That is a fact read from the project the
+    same way every other fact here is, so a name found there HOLDS rather than skips.
+
+    A built tree answers too, and differently: once compiled, the `.pyd` or `.so` is simply
+    on disk. Both are checked, because the first works before a build and the second works
+    for projects whose build config this does not know how to read.
+    """
+    names: set[str] = set()
+    tool = project.pyproject.get("tool")
+    tool = tool if isinstance(tool, dict) else {}
+
+    maturin = tool.get("maturin")
+    if isinstance(maturin, dict) and isinstance(maturin.get("module-name"), str):
+        names.add(maturin["module-name"])
+
+    # setuptools-rust: a list of ext-modules, each with a dotted `target`.
+    rust = tool.get("setuptools-rust")
+    if isinstance(rust, dict):
+        rust = rust.get("ext-modules")
+    if isinstance(rust, list):
+        names.update(e["target"] for e in rust if isinstance(e, dict) and isinstance(e.get("target"), str))
+
+    # setuptools' own PEP 621 table, where the key is `name`.
+    setuptools = tool.get("setuptools")
+    ext = setuptools.get("ext-modules") if isinstance(setuptools, dict) else None
+    if isinstance(ext, list):
+        names.update(e["name"] for e in ext if isinstance(e, dict) and isinstance(e.get("name"), str))
+
+    # And whatever a previous build actually left behind.
+    for top, directory in _package_roots(project).items():
+        for pattern in ("*.pyd", "*.so"):
+            for path in directory.rglob(pattern):
+                stem = path.name.split(".")[0]  # foo.cpython-313-x86_64.so -> foo
+                parts = path.relative_to(directory).parts[:-1]
+                names.add(".".join((top, *parts, stem)))
+    return names
+
+
 def _resolve_module(dotted: str, roots: dict[str, Path]) -> Path | None:
     """`pkg.sub.deep` -> the file whose top level defines that module's names, or None."""
     parts = dotted.split(".")
@@ -207,6 +254,7 @@ class DocumentedSymbols(Verifier):
 
     def check(self, project: Project, documents: Iterable[Document]) -> Iterator[Finding]:
         roots = _package_roots(project)
+        built = _built_extension_modules(project)
         module_cache: dict[str, tuple[set[str], bool, bool] | None] = {}
         submodule_cache: dict[str, bool] = {}
 
@@ -244,6 +292,12 @@ class DocumentedSymbols(Verifier):
                 return self.holds(claim, f"`{name}` is bound at the top level of `{module}`")
             if is_submodule(f"{module}.{name}"):
                 return self.holds(claim, f"`{name}` is itself an importable submodule of `{module}`")
+            if f"{module}.{name}" in built:
+                return self.holds(
+                    claim,
+                    f"`{module}.{name}` is a compiled extension module this project builds, "
+                    f"declared in pyproject.toml's build-backend table",
+                )
             if dynamic:
                 return self.skip(
                     claim,

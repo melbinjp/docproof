@@ -38,7 +38,7 @@ if sys.version_info >= (3, 11):
 else:
     import tomli as tomllib  # type: ignore[no-redef]
 
-from .config import Config, declares_removed, is_historical, opts_out, suppressed_lines
+from .config import Config, declares_removed, is_historical, opts_out, superseded_lines, suppressed_lines
 from .docs import DOC_SUFFIXES, SKIP_DIRS
 from .model import Claim, Finding, Silence, SilenceVerdict
 from .project import Project
@@ -154,7 +154,14 @@ def documents_from(root: Path, texts: dict[str, str], config: Config) -> list[Do
             continue
         if declares_removed(text) or opts_out(text):
             continue
-        documents.append(Document(path=root / relative, text=text, suppressed=suppressed_lines(text)))
+        documents.append(
+            Document(
+                path=root / relative,
+                text=text,
+                suppressed=suppressed_lines(text),
+                superseded=superseded_lines(text),
+            )
+        )
     return documents
 
 

@@ -31,8 +31,17 @@ class Document:
     suppressed: frozenset[int] = frozenset()
     """Lines a `<!-- docproof: skip -->` marker covers. Claims there are never raised."""
 
+    superseded: frozenset[int] = frozenset()
+    """Lines in a block the prose labels `Before:` / `Old code:` / `From:`.
+
+    Kept separate from `suppressed` rather than merged into it, because the two silences
+    are not the same kind. A marker is the author opting out and knowing they did. This is
+    the tool deciding on its own, and a rule nobody asked for that quietly drops blocks
+    would go wrong invisibly — so the CLI prints where it fired.
+    """
+
     def silenced(self, line: int) -> bool:
-        return line in self.suppressed
+        return line in self.suppressed or line in self.superseded
 
 
 class Verifier(ABC):

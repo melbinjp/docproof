@@ -232,3 +232,66 @@ def test_saying_nothing_is_not_a_failure_here(make_repo: Callable[..., Path]) ->
     outcome = DocumentedSymbols().run(project, documents)
     assert outcome.findings == []
     assert not outcome.silent
+
+
+# -- modules that are built rather than written -------------------------------------------
+
+
+MATURIN = """
+[project]
+name = "toolkit"
+version = "0.1.0"
+
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[tool.maturin]
+module-name = "toolkit.bridge.fast_core"
+"""
+
+
+def test_the_temporal_case_a_compiled_module_is_not_missing(make_repo: Callable[..., Path]) -> None:
+    """A Rust module has no `.py` file, and in a fresh clone no file at all.
+
+    `temporalio/sdk-python`'s README imports `temporalio.bridge.temporal_sdk_bridge`, which
+    maturin compiles. Reading only the source tree, this reported the Temporal SDK's own
+    README as contradicting its code — a confident sentence about a module that exists the
+    moment anyone builds the project.
+
+    The declaration is right there in `pyproject.toml`, in the build backend's own table,
+    so this HOLDS rather than skips: it is read from the project like every other fact.
+    """
+    files = {
+        "pyproject.toml": MATURIN,
+        "README.md": "```python\nfrom toolkit.bridge import fast_core\n```\n",
+        "toolkit/__init__.py": "",
+        "toolkit/bridge/__init__.py": "",
+    }
+    found = check(make_repo(files))
+    assert [(s, v) for s, v, _ in found] == [("toolkit.bridge.fast_core", Verdict.HOLDS)]
+    assert "compiled extension module" in found[0][2]
+
+
+def test_a_name_the_build_does_not_declare_is_still_broken(make_repo: Callable[..., Path]) -> None:
+    """Recall must survive the fix: only the declared name gets the benefit."""
+    files = {
+        "pyproject.toml": MATURIN,
+        "README.md": "```python\nfrom toolkit.bridge import slow_core\n```\n",
+        "toolkit/__init__.py": "",
+        "toolkit/bridge/__init__.py": "",
+    }
+    found = check(make_repo(files))
+    assert [(s, v) for s, v, _ in found] == [("toolkit.bridge.slow_core", Verdict.BROKEN)]
+
+
+def test_a_built_artifact_on_disk_answers_too(make_repo: Callable[..., Path]) -> None:
+    """For build configs this cannot read, a compiled file in the tree is the fallback."""
+    files = {
+        "pyproject.toml": PYPROJECT,
+        "README.md": "```python\nfrom toolkit import fast_core\n```\n",
+        "toolkit/__init__.py": "",
+        "toolkit/fast_core.cpython-313-x86_64-linux-gnu.so": "",
+    }
+    found = check(make_repo(files))
+    assert [(s, v) for s, v, _ in found] == [("toolkit.fast_core", Verdict.HOLDS)]

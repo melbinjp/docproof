@@ -8,7 +8,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from . import __version__
-from .config import Config, declares_removed, is_historical, opts_out, suppressed_lines
+from .config import Config, declares_removed, is_historical, opts_out, superseded_lines, suppressed_lines
 from .docs import find_docs, read
 from .history import classify, vanished_documents
 from .project import Project, find_root
@@ -82,7 +82,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             continue
         if opts_out(text):
             continue
-        documents.append(Document(path=path, text=text, suppressed=suppressed_lines(text)))
+        documents.append(
+            Document(
+                path=path, text=text, suppressed=suppressed_lines(text), superseded=superseded_lines(text)
+            )
+        )
 
     if not documents:
         # "No documentation" is ambiguous the same way a silent verifier is: the first
@@ -119,6 +123,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         # Printed, not swallowed. Dropping documents quietly is the same failure as
         # skipping claims quietly: the run looks cleaner than the evidence supports.
         print(f"   describing the past, not judged: {', '.join(sorted(historical))}")
+    # Same principle, one level down, and it applies harder: nobody asked for this rule.
+    # A `Before:` label is the tool deciding by itself that a block is not a claim, so the
+    # place it fired is named — over-firing should be visible as a shrinking count, not as
+    # a report that quietly got cleaner.
+    superseded = [
+        f"{d.path.relative_to(project.root).as_posix()}:{min(d.superseded)}"
+        for d in documents
+        if d.superseded
+    ]
+    if superseded:
+        print(f"   labelled superseded by the prose above, not judged: {', '.join(sorted(superseded))}")
     print()
     print(report.render(show_skips=args.show_skips))
     return report.exit_code

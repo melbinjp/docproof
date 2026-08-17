@@ -92,6 +92,69 @@ def declares_removed(text: str) -> bool:
     return any(TOMBSTONE.match(line) for line in lede)
 
 
+# A code block can be shown precisely BECAUSE it is wrong — the API you are migrating off,
+# the anti-example, the "before" of a before-and-after. Judging it inverts the tool: the
+# passage is correct exactly when the code in it does not work.
+#
+# `plaid/plaid-python`'s README has five of these under `#### Client initialization`, each
+# introduced by a line reading `From:`, showing `from plaid import Client` — the pre-8.0.0
+# interface, removed in August 2021 and shown so an upgrading reader recognises it. This
+# reported that README as contradicting its code. Filing it would have been a wrong pull
+# request against a payments company.
+#
+# **Derived by measuring, not by guessing, and the first attempt was three-quarters noise.**
+# A wide net over the hundred-repo corpus (`mind/work/docproof-sweep/measure_supersede.py`)
+# found 391 sites, of which 298 began with the word `from` because that is also how a Python
+# import line starts. The signal is not the vocabulary, it is the LINE SHAPE: a line that is
+# only a label and a colon, carrying no code of its own.
+#
+# Narrowed to that shape the corpus gives 54 sites, and every one was read:
+#
+#     33  the superseded side   Before: / Old code: / From: / Old: / Instead of: / Old example:
+#     20  the CURRENT side      After: / New code: / New: / New setting: / Now we have:
+#      1  a false match         `### From repository root:` — a heading naming a directory
+#
+# So the rule takes the superseded side only. Matching `After:` too would have silenced
+# twenty blocks of live, correct, checkable code — the exact over-correction that makes a
+# checker useless — and headings are excluded, which is what removes the single false match.
+#
+# **`Deprecated:` is deliberately NOT here**, for the reason `TOMBSTONE` already gives:
+# deprecated is not removed. A deprecated API still exists, still makes promises, and still
+# deserves judgment.
+SUPERSEDED_LABEL = re.compile(
+    r"(?i)^[\s>*_-]{0,8}(?:before|old(?:\s+\w+)?|from|previously|legacy|instead\s+of)"
+    r"(?:\s+\w+){0,2}\s*:[\s*_]*$"
+)
+FENCE = re.compile(r"^\s*(?:```|~~~)")
+
+
+def superseded_lines(text: str) -> frozenset[int]:
+    """Line numbers inside a code block that the prose above labels as superseded.
+
+    Scope is one block, reached within two lines of the label — deliberately tight. A
+    before-and-after runs `Before:` block `After:` block, so a rule that ran further than
+    the next fence would swallow the half that is current and correct.
+    """
+    lines = text.split("\n")
+    covered: set[int] = set()
+    for index, line in enumerate(lines):
+        if line.lstrip().startswith("#") or not SUPERSEDED_LABEL.match(line):
+            continue
+        cursor = next(
+            (c for c in range(index + 1, min(index + 3, len(lines))) if FENCE.match(lines[c])), None
+        )
+        if cursor is None:
+            continue
+        covered.add(cursor + 1)
+        cursor += 1
+        while cursor < len(lines) and not FENCE.match(lines[cursor]):
+            covered.add(cursor + 1)
+            cursor += 1
+        if cursor < len(lines):
+            covered.add(cursor + 1)  # the closing fence
+    return frozenset(covered)
+
+
 @dataclass
 class Config:
     exclude: tuple[str, ...] = ()

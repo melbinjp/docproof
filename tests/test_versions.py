@@ -192,6 +192,51 @@ def test_no_extras_table_at_all_is_a_complete_empty_set(tmp_path: Path) -> None:
     assert [(s, v) for s, v, _ in found] == [("secure", Verdict.BROKEN)]
 
 
+# -- where the extras are actually declared --------------------------------------------
+
+
+COHERE = """
+[project]
+name = "cohere"
+version = "7.0.8"
+requires-python = ">=3.9"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.extras]
+oci = ["oci"]
+aiohttp = ["aiohttp", "httpx-aiohttp"]
+"""
+
+
+def test_the_cohere_case_legacy_poetry_extras_are_real(tmp_path: Path) -> None:
+    """The false positive that stopped a product, reduced to its pyproject.
+
+    `cohere-python` has a `[project]` table and declares its extras the legacy Poetry way.
+    Reading only `[project.optional-dependencies]`, this called `pip install 'cohere[oci]'`
+    broken because the project "declares no optional-dependencies at all". The published
+    cohere 7.0.8 carries `oci<3.0.0,>=2.165.0; extra == "oci"` in `requires_dist`, so the
+    command works — the tool invented a contradiction in a company's README.
+
+    An invented contradiction costs more than a missed one. A missed one is silence; this
+    one is a confident sentence about a table, and a reader who opens `pyproject.toml`
+    finds the answer two screens below where the tool stopped looking.
+    """
+    found = check(build(tmp_path, "```\npip install 'cohere[oci]'\n```\n", COHERE))
+    assert [(s, v) for s, v, _ in found] == [("oci", Verdict.HOLDS)]
+    assert "[tool.poetry.extras]" in found[0][2]
+
+
+def test_an_undeclared_extra_still_breaks_under_legacy_poetry(tmp_path: Path) -> None:
+    """Reading a second table must not turn the check off — recall stays where it was."""
+    found = check(build(tmp_path, "```\npip install 'cohere[secure]'\n```\n", COHERE))
+    assert [(s, v) for s, v, _ in found] == [("secure", Verdict.BROKEN)]
+    assert "[tool.poetry.extras]" in found[0][2]
+    assert "'aiohttp', 'oci'" in found[0][2].replace('"', "'")
+
+
 # -- applicability and silence ---------------------------------------------------------
 
 

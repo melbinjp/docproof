@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable, Iterator
+from pathlib import PurePosixPath
 
 from .. import tree
 from ..docs import Span, spans
@@ -150,6 +151,35 @@ PROMPT = re.compile(r"^\s*(?:[$#]\s+\S|>>>\s|\.\.\.\s|>\s+\S)")
 # be a path that must already exist.
 CREATES = re.compile(r"^(?:sudo\s+)?(?:touch|mkdir)\b")
 
+# The same instruction as `CREATES`, written in prose instead of a shell transcript.
+#
+# `CREATES` catches `$ touch tests/__init__.py`. It does not catch hypothesis's
+# `CONTRIBUTING.rst:12`, *"2. Create ``hypothesis/RELEASE.rst`` with ``RELEASE_TYPE: patch``"*
+# — a changelog fragment every contributor creates and every release consumes, deleted in
+# `6384deef4` ("Bump hypothesis version to 6.165.10"). The deletion is the file's lifecycle,
+# and the sentence is an instruction to the reader, not a claim about this repository. pipx
+# (`changelog.d/1234.bugfix.md`) and twine (`changelog/5678.feature.rst`) document the same
+# towncrier workflow and would have gone the same way.
+#
+# **`create` and nothing else, because that is what the corpus supports.** Measured over the
+# hundred repositories by `mind/work/docproof-sweep/measure_create.py`: 283 candidate sites
+# across seven creation verbs, of which
+#
+#     58   create   every one an instruction to the reader. No exceptions.
+#    188   add      almost entirely changelog prose — "Add `meta.total` to the search
+#                   endpoint" — about API parameters, not files
+#     28   make     changelog prose again: "Make `click.progressbar` work with `codecs.open`"
+#      5   write    mixed, and the mix is the disqualifier: "Write a `sitecustomize.py`"
+#                   creates, "doesn't write `Pipfile.lock`" describes what the code does
+#      4   put      mixed the same way: "put the `requirements.txt` file" against
+#                   "put `uvicorn.run` into an `if __name__` clause"
+#
+# A verb whose hits are mixed cannot be used, because the wrong half silences real drift.
+CREATES_IN_PROSE = re.compile(
+    r"(?i)\bcreate\s+(?:a\s+|an\s+|the\s+|new\s+|your\s+|this\s+)*"
+    r"[`'\"]{1,2}([\w.\-/]+)[`'\"]{1,2}"
+)
+
 # `owner/repo` as it appears in a badge, a link or a clone URL. black's docs mention
 # `tqdm/tqdm`; that is a GitHub slug, not a directory called tqdm inside tqdm.
 URLISH = re.compile(r"(https?://|github\.com|gitlab\.com|\bgit@|\.git\b|\]\(|\bpip install\b)")
@@ -226,6 +256,7 @@ class DocumentedPaths(Verifier):
         """
         seen: set[tuple[str, str]] = set()
         for document in documents:
+            lines = document.text.split("\n")
             for span in spans(document.text):
                 # A directory diagram is read as a diagram: its leaves are only
                 # meaningful once indentation has been turned back into a full path.
@@ -276,6 +307,12 @@ class DocumentedPaths(Verifier):
 
                 if document.silenced(span.line):
                     continue
+                # An inline span is the backticked token alone, so `span.text` was the path
+                # repeated — no surrounding text at all, though `Claim.span` is documented as
+                # "the surrounding text it was read out of". That cost a rule: whether the
+                # sentence says CREATE cannot be asked of a string that is only the path.
+                # Fenced blocks keep the token, because there the line is a whole command.
+                source_line = lines[span.line - 1] if 0 < span.line <= len(lines) else span.text
                 for token in candidates(span):
                     if not looks_like_a_repo_path(token):
                         continue
@@ -288,7 +325,7 @@ class DocumentedPaths(Verifier):
                         subject=token,
                         doc=document.path,
                         line=span.line,
-                        span=span.text if not span.fenced else token,
+                        span=source_line if not span.fenced else token,
                     )
 
     def _judge(self, project: Project, claim: Claim, git: Git) -> Finding:
@@ -329,6 +366,34 @@ class DocumentedPaths(Verifier):
 
         if target.exists():
             return self.skip(claim, f"{subject} is present but untracked, so it is not a shipped path")
+
+        # **Git cannot represent an empty directory, so for a path written as a directory,
+        # absence from the index is not evidence of deletion.**
+        #
+        # `PostHog/posthog-python`'s RELEASING.md says changesets must live in
+        # `.sampo/changesets/`, and this called it broken because the last file under it was
+        # deleted in `0fc7ec6`. That commit is the release bot CONSUMING a changeset — the
+        # normal lifecycle of the directory, on a v7.39.1 release four days before the sweep.
+        # The sentence is not a claim that files are there; it says where `sampo add` PUTS
+        # them, and it will be right again the next time anyone adds one.
+        #
+        # The trailing slash is the whole signal, which is why it is read before
+        # `rstrip("/")` throws it away. Requiring the parent to be tracked keeps the case
+        # this must still catch: a documented directory whose entire tree really did go.
+        if any(found.rstrip("/") == subject for found in CREATES_IN_PROSE.findall(claim.span)):
+            return self.skip(
+                claim,
+                f"the sentence tells the reader to CREATE `{subject}`, so it is an "
+                f"instruction rather than a claim that this repository has it",
+            )
+
+        if claim.subject.rstrip().endswith("/") and git.tracks(str(PurePosixPath(subject).parent)):
+            return self.skip(
+                claim,
+                f"`{subject}` is written as a directory and its parent is tracked. Git "
+                f"stores files, not directories, so an empty one is indistinguishable from "
+                f"a deleted one and this cannot be called drift",
+            )
 
         # A bare filename is a *name*, not a location, and the two are easy to confuse
         # because a project usually has a file by that name too. Every one of these was
