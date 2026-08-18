@@ -9,7 +9,15 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from . import __version__
-from .config import Config, declares_removed, is_historical, opts_out, superseded_lines, suppressed_lines
+from .config import (
+    Config,
+    declares_removed,
+    directory_disclaimer,
+    is_historical,
+    opts_out,
+    superseded_lines,
+    suppressed_lines,
+)
 from .docs import find_docs, read
 from .history import classify, vanished_documents
 from .project import Project, find_root
@@ -107,6 +115,30 @@ def survive_a_narrow_console() -> None:
             reconfigure(errors="backslashreplace")
 
 
+def report_set_aside(historical: list[str], disclaimed: dict[tuple[str, str], list[str]]) -> None:
+    """Name every document that was found and deliberately not judged, and why.
+
+    Printed, not swallowed. Dropping documents quietly is the same failure as skipping
+    claims quietly: the run looks cleaner than the evidence supports.
+
+    It is a function rather than two blocks inline because it has to run on BOTH exits - the
+    ordinary one and the one where every document was set aside. The second path used to
+    return before reaching this, so a repository whose only docs sit in a marked folder was
+    told "No documentation found", which is the same lie in a friendlier voice.
+    """
+    if historical:
+        print(f"   describing the past, not judged: {', '.join(sorted(historical))}")
+    # The directory reason is QUOTED, and it has to be. Every other skip can be audited by
+    # opening the document that was skipped; this one's reason lives in a neighbouring file
+    # the reader is not looking at, so a bare count would be a skip nobody could check.
+    for (directory, marker), names in sorted(disclaimed.items()):
+        print(
+            f"   {directory}/ says its own contents are not current, "
+            f"not judged ({len(names)}): {', '.join(sorted(names))}"
+        )
+        print(f'     its README: "{marker[:200]}"')
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     survive_a_narrow_console()
     args = build_parser().parse_args(argv)
@@ -122,6 +154,10 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     documents = []
     historical: list[str] = []
+    # Keyed by (directory, the sentence it said), so the report can quote the reason once and
+    # list the files under it rather than repeating a disclaimer thirty times.
+    disclaimed: dict[tuple[str, str], list[str]] = {}
+    read_directory: dict[Path, str | None] = {}
     for path in find_docs(project.root, tuple(args.docs) + config.docs):
         relative = project.relative(path)
         if config.excludes(relative):
@@ -129,6 +165,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         if is_historical(relative):
             historical.append(relative)
             continue
+        # A README at the project root speaks for the project, not for a folder of drafts.
+        # Letting it disclaim would silence everything, which is the whole repository.
+        if path.parent != project.root:
+            if path.parent not in read_directory:
+                read_directory[path.parent] = directory_disclaimer(path.parent)
+            marker = read_directory[path.parent]
+            if marker:
+                disclaimed.setdefault((project.relative(path.parent), marker), []).append(path.name)
+                continue
         text = read(path)
         if declares_removed(text):
             historical.append(relative)
@@ -145,11 +190,27 @@ def main(argv: Sequence[str] | None = None) -> int:
         # "No documentation" is ambiguous the same way a silent verifier is: the first
         # broken checkout this tool found had no documents on disk at all, and "nothing
         # to prove" was the wrong verdict for it. HEAD settles which case this is.
-        vanished = vanished_documents(project, config)
-        if vanished:
-            print(vanished)
-            return 1
-        print(f"No documentation found under {project.root}. Nothing to prove.")
+        #
+        # ...but only when nothing was deliberately set aside. If every document was skipped
+        # for a stated reason then documentation WAS found and we chose not to judge it, so
+        # "no documentation on disk" is simply false, and `vanished_documents` compares a
+        # HEAD that knows nothing about those reasons against a disk we filtered ourselves.
+        # A repository whose only docs live in a folder marked "not the source of truth"
+        # would otherwise be told its checkout is broken. Found by a test, not in the wild.
+        if not historical and not disclaimed:
+            vanished = vanished_documents(project, config)
+            if vanished:
+                print(vanished)
+                return 1
+            print(f"No documentation found under {project.root}. Nothing to prove.")
+            return 0
+        # Documentation WAS found and all of it was set aside. Saying "no documentation
+        # found" here would be the same lie in a friendlier voice, so the reasons are
+        # printed on this path exactly as they are on the ordinary one.
+        print(f"docproof {__version__} — {project.root.name}, every document set aside")
+        report_set_aside(historical, disclaimed)
+        print()
+        print("Nothing was judged, and each reason is above. Nothing to prove.")
         return 0
 
     chosen = [
@@ -172,10 +233,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         outcomes.append(outcome)
     report = Report(project=project, outcomes=outcomes)
     print(f"docproof {__version__} — {project.root.name}, {len(documents)} document(s)")
-    if historical:
-        # Printed, not swallowed. Dropping documents quietly is the same failure as
-        # skipping claims quietly: the run looks cleaner than the evidence supports.
-        print(f"   describing the past, not judged: {', '.join(sorted(historical))}")
+    report_set_aside(historical, disclaimed)
     # Same principle, one level down, and it applies harder: nobody asked for this rule.
     # A `Before:` label is the tool deciding by itself that a block is not a claim, so the
     # place it fired is named — over-firing should be visible as a shrinking count, not as
