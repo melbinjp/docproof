@@ -179,6 +179,47 @@ TOMBSTONE = re.compile(r"(?i)^[\s>*_-]{0,8}This\s+\w+\s+(?:has been|was)\s+remov
 RETIRED_LABEL = re.compile(r"(?i)^[\s>*_#-]{0,8}\**\s*(?:obsolete|superseded|historical\s+record)\b")
 
 
+# The THIRD form, and the one both of the above miss because it is neither a sentence nor a
+# label: a machine-readable STATUS FIELD. `merman` keeps a document per workstream and each
+# opens with a header line -
+#
+#     Status: Completed; historical snapshot
+#     Status: Superseded on 2026-07-15 by `docs/alignment/STATUS.md`
+#     Status: Closed
+#
+# and those documents then describe the tree as it stood when the work finished. Reporting
+# them argues with a field the project maintains on purpose.
+#
+# **The value is read, not just the field.** This is the whole difficulty, and it was found by
+# measurement rather than foreseen: `pipenv/docs/dev/initiative-f-typed-design.md` opens
+# `Status: **awaiting maintainer sign-off**`, which is a LIVE document waiting on a person -
+# and `pipenv#6709` was filed against that very file and merged. A rule keyed on the presence
+# of a `Status:` line would have suppressed a real, accepted contribution. So the value must
+# name a terminal state, and `draft`, `proposed`, `active`, `in progress` and `awaiting`
+# deliberately do not.
+#
+# Measured over 217 findings in 134 repositories: **58 suppressed across 22 documents, and
+# zero of the filings already made** - checked one by one against click, prettier, pipenv,
+# gsd-core, wekan, zeroclaw and sentry-react-native, including the two that merged.
+#
+# The honest weakness is the same one the ADR rule carries: 21 of the 22 documents are
+# `merman` and the 22nd is `wekan`. Two repositories is a thin base. It is taken anyway on the
+# same reasoning - a project writing `Status: Complete` in a structured field has said what
+# the document is, and a project keeping live documentation under that header would be
+# perverse.
+STATUS_FIELD = re.compile(r"(?i)^[\s>*_#-]{0,8}\**\s*status\**\s*[:=]\s*(.+)$")
+STATUS_DONE = re.compile(
+    "(?i)^[^a-z0-9]*(?:completed?|done|finished|shipped|historical|archived|superseded"
+    "|obsolete|retired|closed|abandoned|withdrawn)(?![a-z])"
+)
+
+
+def declares_done(line: str) -> bool:
+    """Whether one line is a status field naming a terminal state."""
+    match = STATUS_FIELD.match(line)
+    return bool(match and STATUS_DONE.match(match.group(1).strip()))
+
+
 def declares_removed(text: str) -> bool:
     """Whether a document opens by declaring its own subject removed or retired.
 
@@ -187,7 +228,7 @@ def declares_removed(text: str) -> bool:
     the page should not silence the checker either.
     """
     lede = [line for line in text.split("\n") if line.strip()][:10]
-    return any(TOMBSTONE.match(line) or RETIRED_LABEL.match(line) for line in lede)
+    return any(TOMBSTONE.match(line) or RETIRED_LABEL.match(line) or declares_done(line) for line in lede)
 
 
 # A code block can be shown precisely BECAUSE it is wrong — the API you are migrating off,
