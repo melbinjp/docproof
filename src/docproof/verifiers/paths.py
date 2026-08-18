@@ -527,6 +527,24 @@ class DocumentedPaths(Verifier):
                     f"relative to it rather than to the repository",
                 )
 
+        # **A release consumed this, and being consumed is what it was for.** towncrier and
+        # changesets build a changelog out of small fragment files and DELETE them in the
+        # same commit, so history shows a deletion and the deleting commit is a release.
+        # `pypa/pipenv` plans "Ship a one-line `news/T_F.3.behavior.rst` fragment"; that
+        # file went in "Release v2026.7.1", exactly as designed.
+        #
+        # The lifecycle is read from the project's own config rather than a directory-name
+        # list - see `Project.fragment_dirs`. `.sampo/changesets/` in `PostHog/posthog-python`
+        # is the same case, caught above only because that document wrote a trailing slash.
+        for directory in project.fragment_dirs:
+            if subject == directory or subject.startswith(f"{directory}/"):
+                return self.skip(
+                    claim,
+                    f"`{directory}/` is this project's changelog-fragment directory, "
+                    f"declared in its own configuration. Fragments there are consumed and "
+                    f"deleted by a release, so a missing one has been spent rather than lost",
+                )
+
         removal = git.deleted(subject)
         if removal is None:
             return self.skip(

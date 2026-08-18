@@ -124,6 +124,45 @@ class Project:
         # Shortest first, so the reason names the outermost package that explains the path.
         return sorted(found, key=lambda p: (p.count("/"), p))
 
+    # Where a project keeps the fragments it DELETES on every release. Read from the
+    # project's own configuration, never guessed from the directory name - `news/`,
+    # `changelog.d/`, `changelog/`, `CHANGES/`, `docs/_newsfragments/` and `.changeset/`
+    # are all in use across the corpus, and a hardcoded list covers 3 of the 16
+    # repositories that declare one.
+    FRAGMENT_CONFIGS = ("pyproject.toml", "towncrier.toml")
+
+    @cached_property
+    def fragment_dirs(self) -> list[str]:
+        """Directories whose contents are consumed by the release, nearest first.
+
+        **A path here is not missing; it has been spent.** `pypa/pipenv` plans a change in
+        `docs/dev/modernization-plan.md` with "Ship a one-line `news/T_F.3.behavior.rst`
+        fragment". towncrier builds the changelog out of those files and deletes them, so
+        the commit that removed it is literally "Release v2026.7.1". History agrees the
+        path is gone and is still answering the wrong question - the same shape as
+        `.sampo/changesets/` in `PostHog/posthog-python`, which the empty-directory rule
+        already catches when the document happens to write a trailing slash.
+
+        This does not depend on a slash, because it does not have to infer the lifecycle:
+        the project declares the directory it will empty.
+        """
+        found: list[str] = []
+        for name in self.FRAGMENT_CONFIGS:
+            path = self.root / name
+            try:
+                data: Any = tomllib.loads(path.read_text(encoding="utf-8"))
+            except (OSError, tomllib.TOMLDecodeError, UnicodeDecodeError):
+                continue
+            section = data.get("tool", {}).get("towncrier", {})
+            directory = section.get("directory") if isinstance(section, dict) else None
+            if isinstance(directory, str) and directory.strip():
+                found.append(directory.strip().strip("/"))
+        # Changesets have no configurable location: the tool only ever reads `.changeset/`,
+        # and it deletes each fragment when it cuts a version.
+        if (self.root / ".changeset").is_dir():
+            found.append(".changeset")
+        return sorted(dict.fromkeys(found), key=lambda p: (p.count("/"), p))
+
     @cached_property
     def source_dirs(self) -> list[Path]:
         """Where this project's own Python lives.

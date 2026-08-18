@@ -609,3 +609,56 @@ def test_a_decision_record_describes_a_decision_taken_then():
     assert is_historical("docs/decision-records/0002-x.md")
     assert not is_historical("docs/adrian/notes.md")
     assert not is_historical("src/prdemo/main.py")
+
+
+def test_a_changelog_fragment_was_spent_not_lost(make_repo: Callable[..., Path]):
+    """towncrier DELETES the fragment when it builds the changelog, so the deletion is the
+    point of the file rather than evidence against the document.
+
+    `pypa/pipenv` plans a change with "Ship a one-line `news/T_F.3.behavior.rst` fragment".
+    That file was removed in the commit titled *"Release v2026.7.1"*. History agrees it is
+    gone and is still answering the wrong question - three of pipenv's eight findings were
+    this, and every one of them was correct prose.
+
+    The directory is read from the project's own `[tool.towncrier]`, never guessed: across
+    the 134-repository corpus, 16 projects declare one and they use seven different names
+    (`news`, `changelog.d`, `changelog`, `CHANGES`, `docs/changelog`, `docs/_newsfragments`,
+    `.changeset`). A hardcoded list covers three of them.
+    """
+    repo = make_repo(
+        {"pyproject.toml": '[tool.towncrier]\ndirectory = "news/"\n'},
+        deleted={"news/4242.bugfix.rst": "Fixed a thing.\n"},
+        documented_before={"PLAN.md": "Ship a one-line `news/4242.bugfix.rst` fragment.\n"},
+    )
+    verdict, detail = run(repo)["news/4242.bugfix.rst"]
+    assert verdict is Verdict.SKIPPED
+    assert "changelog-fragment directory" in detail
+
+
+def test_a_path_outside_the_fragment_directory_is_still_judged(make_repo: Callable[..., Path]):
+    """The recall this must not cost.
+
+    Declaring a fragment directory buys that directory and nothing else. A project with a
+    `news/` is not a project whose documentation stops being checked - which is the failure
+    mode of every skip rule, and the reason each one gets a paired test like this.
+    """
+    repo = make_repo(
+        {"pyproject.toml": '[tool.towncrier]\ndirectory = "news/"\n'},
+        deleted={"tools/build.py": ""},
+        documented_before={"PLAN.md": "Run `tools/build.py` first.\n"},
+    )
+    verdict, _ = run(repo)["tools/build.py"]
+    assert verdict is Verdict.BROKEN
+
+
+def test_a_changeset_directory_needs_no_configuration(make_repo: Callable[..., Path]):
+    """`.changeset/` has no configurable location - the tool only ever reads that path, and
+    empties it when it cuts a version. `open-gsd/gsd-core` is the corpus example."""
+    repo = make_repo(
+        {".changeset/config.json": "{}\n"},
+        deleted={".changeset/lucky-pandas-smile.md": "---\n---\nA change.\n"},
+        documented_before={"CONTRIBUTING.md": "Add `.changeset/lucky-pandas-smile.md`.\n"},
+    )
+    verdict, detail = run(repo)[".changeset/lucky-pandas-smile.md"]
+    assert verdict is Verdict.SKIPPED
+    assert "changelog-fragment directory" in detail
