@@ -349,6 +349,36 @@ def test_a_changelog_describes_the_past(make_repo: Callable[..., Path]):
     assert not is_historical("docs/changelog-policy.md")
 
 
+def test_a_dated_document_describes_the_day_it_names(make_repo: Callable[..., Path]):
+    """wekan's `Optimized-2025-02-07/Priority_2_optimizations.md` opens *"All Priority 2
+    optimizations have been successfully implemented"* and lists, under a heading reading
+    **Files:**, *"Created: `server/publications/cronJobs.js`"*. That file was removed in
+    2026 by a commit named *"Remove the cron migration subsystem: it never ran"*. The
+    document is a true record of what was built on a day, and nobody rewrites a dated
+    summary to track a tree it was never describing.
+
+    41 of 92 reported path findings across the corpus sit in a dated path, over 3
+    repositories and 12 documents — the largest class left once `adr/` and `prd/` are
+    handled.
+
+    A full date only. `docs/2026-roadmap.md` is live and must keep being judged: a date is
+    a stamp, a year is a topic. And a version that looks date-shaped is not a date.
+    """
+    from docproof.config import is_historical
+
+    assert is_historical("docs/post-mortems/2019-02-05.md")
+    assert is_historical("docs/DeveloperDocs/Optimized-2025-02-07/Priority_2.md")
+    assert is_historical("docs/issueevidence/1192-adr-test-audit-2026-06-13.md")
+    assert is_historical("docs/superpowers/specs/2026-06-27-smart-entry-design.md")
+    # The rule must not eat live documentation. Every one of these is a path from a
+    # finding that a human reviewed and filed: click, pipenv (merged), sentry-react-native.
+    assert not is_historical("docs/contributing.md")
+    assert not is_historical("CONTRIBUTING.md")
+    assert not is_historical("docs/dev/modernization-plan.md")
+    assert not is_historical("docs/2026-roadmap.md")
+    assert not is_historical("docs/v2-1-0-notes.md")
+
+
 def test_an_archive_directory_describes_the_past(make_repo: Callable[..., Path]):
     """`coollabsio/coolify` documents `scripts/coold-vm.sh` inside `docs/v5/archive/dev/`,
     and the commit that deleted the script is named *"archive V5 implementation"* — the same

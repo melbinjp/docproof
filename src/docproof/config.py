@@ -88,6 +88,33 @@ HISTORICAL = re.compile(
     # the rule is taken anyway on the same footing as `archive/`, because what carries it is
     # what the directory MEANS and not how many projects happen to have one.
     rf" | (^|/) (?: adrs? | prds? | decision[-_]?records? | decisions? ) / "
+    # A DATE in the path, which is the project stamping a document with the day it
+    # describes. Same reasoning as `archive/`: the name says what the contents are.
+    #
+    # Found by trying three times to demonstrate that this tool belongs in CI as a gate,
+    # failing three times, and measuring what the raw output was actually full of instead.
+    # **41 of 92 reported path findings across the corpus sit in a path carrying a date,
+    # in 3 repositories and 12 documents**, which is the largest remaining class by a wide
+    # margin now that `adr/` and `prd/` are handled.
+    #
+    # Every one of the twelve is unmistakable once looked at. `docs/post-mortems/2019-02-05.md`
+    # is reported for naming files deleted in the seven years since. wekan's
+    # `docs/DeveloperDocs/Optimized-2025-02-07/Priority_2_optimizations.md` opens *"All
+    # Priority 2 optimizations have been successfully implemented"* and lists, under a
+    # heading literally reading **Files:**, *"Created: `server/publications/cronJobs.js`"*.
+    # That file was removed in 2026 by a commit named *"Remove the cron migration subsystem:
+    # it never ran"*. The document is not wrong. It is a true record of what was built on a
+    # day, and nobody is going to rewrite a dated summary to keep it in step with a tree it
+    # was never describing.
+    #
+    # Full date only, never a bare year: `docs/2026-roadmap.md` is a live document and must
+    # keep being judged. A date is a stamp; a year is a topic.
+    #
+    # **Regression-checked against every finding I have filed with a human behind it** -
+    # click, pipenv (merged), prettier, sentry-react-native. None of their documents carries
+    # a date, so this rule silences none of them. That check is the point: a skip rule that
+    # quietly eats real findings is worse than the noise it removes.
+    r" | [0-9]{4} - [0-9]{2} - [0-9]{2} "
 )
 
 
