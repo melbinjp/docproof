@@ -56,6 +56,30 @@ moved is correct and always will be. And `cli-flags` reported itself **not appli
 rather than reporting zero problems: click is a library with no console scripts, and a
 clean bill of health nobody examined is worth less than nothing.
 
+## Put it in your CI
+
+```yaml
+- uses: actions/checkout@v4
+  with:
+    fetch-depth: 0        # docproof needs history to tell drift from an example
+- uses: melbinjp/docproof@v0.1.0
+```
+
+**Both lines are load-bearing, and the action refuses to run without the first.**
+`actions/checkout` gives you depth 1 unless you ask otherwise, and a clone with its history
+cut off cannot tell a deleted file from one that never existed. Measured on `pallets/click`:
+a full clone reports `1 broken` and exits 1, and the same repository at `--depth 1` reports
+"Nothing contradicted" and exits **0**. A silent version of this check would hand you a
+permanently green gate that had judged nothing, so it fails with the one-line fix in the
+message instead. [Requirements](#requirements) has the rest.
+
+Adopting on a project that already has drift, which is most of them:
+`fail-on-findings: false` prints every finding and leaves the run green while you work
+through them. [What that suppresses, and the one thing it
+will not](#adding-it-to-a-project-that-already-has-drift).
+
+Everything below is why you would want that.
+
 ## Why it is not another LLM documentation reviewer
 
 There are several tools that hand your README to a model and ask whether it looks right.

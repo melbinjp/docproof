@@ -52,6 +52,28 @@ jobs:
           print(f"{tag} matches pyproject.toml {version}")
           PY
 
+      - name: Every README pin of the Action names this tag
+        run: |
+          python - <<'PY'
+          import os, pathlib, re, sys
+          tag = os.environ["GITHUB_REF_NAME"]
+          readme = pathlib.Path("README.md").read_text(encoding="utf-8")
+          # No backslash anywhere in this pattern, deliberately. A word boundary written the
+          # usual way has arrived on disk as a literal backspace byte more than once on this
+          # machine, and a regex that cannot match breaks nothing and reports nothing.
+          pins = set(re.findall("melbinjp/docproof@(v[0-9]+[.][0-9]+[.][0-9]+)", readme))
+          if not pins:
+              sys.exit("::error::README pins the Action nowhere. The snippet a reader copies "
+                       "is the whole adoption path; if it is gone, say so deliberately rather "
+                       "than by deletion.")
+          wrong = sorted(pin for pin in pins if pin != tag)
+          if wrong:
+              sys.exit(f"::error::README pins {', '.join(wrong)} but this release is {tag}. "
+                       f"A tool whose argument is that documentation drifts does not get to "
+                       f"ship a README pinning a version that is not this one.")
+          print(f"README pins {tag} in {len(pins)} distinct form(s), all correct")
+          PY
+
       - name: The tagged commit is on main
         run: |
           git fetch --no-tags origin main
