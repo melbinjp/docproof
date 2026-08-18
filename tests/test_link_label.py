@@ -115,9 +115,7 @@ def test_a_bare_mention_is_untouched(make_repo: Callable[..., Path], capsys) -> 
     assert "src/gone.py" in out
 
 
-def test_the_target_may_resolve_from_the_repository_root(
-    make_repo: Callable[..., Path], capsys
-) -> None:
+def test_the_target_may_resolve_from_the_repository_root(make_repo: Callable[..., Path], capsys) -> None:
     """Real documents write both. `docs/x.md` from a doc in `docs/` resolves against the
     root, not against the document's own directory, and a rule that only tried one of the
     two would fire on half the class and look like it worked."""
@@ -125,9 +123,7 @@ def test_the_target_may_resolve_from_the_repository_root(
 
     repo = make_repo(
         {"pyproject.toml": PYPROJECT, "reference/state-md.md": "# State\n"},
-        documented_before={
-            "docs/GUIDE.md": "See [`docs/OLD.md`](reference/state-md.md) for detail.\n"
-        },
+        documented_before={"docs/GUIDE.md": "See [`docs/OLD.md`](reference/state-md.md) for detail.\n"},
         deleted={"docs/OLD.md": "# old\n"},
     )
     main([str(repo), "--show-skips"])

@@ -452,11 +452,7 @@ class DocumentedPaths(Verifier):
                     # buys nothing and costs coverage, so a label that resolves is left alone
                     # to be judged and to hold. The count shrinking is what showed this, which
                     # is the entire reason the skip is printed rather than dropped.
-                    if (
-                        token in link_labels
-                        and key not in seen
-                        and not (project.root / token).exists()
-                    ):
+                    if token in link_labels and key not in seen and not (project.root / token).exists():
                         seen.add(key)
                         yield self.skip(
                             Claim(
