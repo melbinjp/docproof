@@ -34,7 +34,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable, Iterator
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 
 from .. import tree
 from ..docs import Span, spans
