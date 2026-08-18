@@ -12,8 +12,12 @@ job that uploads. A credential that does not exist cannot leak.
 
 ## One-time setup on PyPI
 
-Until this is done, `release.yml` builds and checks correctly and then fails at the upload
-step. That is intended: an unarmed release path should fail loudly rather than look ready.
+Until this is done, no tag publishes to PyPI. It used to FAIL at the upload step, and that
+was changed on 2026-08-18 because it also failed the GitHub release, which needs no PyPI at
+all. Now `publish-pypi` is conditional on the repository variable `PYPI_ARMED`, and a job
+named **`PyPI was NOT published, the publisher is not armed`** runs instead and prints what
+did not happen. The intent is unchanged: an unarmed path must never look ready. It just
+should not take the working half down with it.
 
 On <https://pypi.org> → **Your account** → **Publishing** → **Add a new pending publisher**:
 
@@ -77,8 +81,10 @@ repositories. The output format is not stable. Nothing here is more finished tha
 ## One-time setup for GitHub Marketplace (the Action)
 
 The package and the Action are two separate distribution channels, and this one has never
-been opened. `melbinjp/rigout` consumes the Action as `melbinjp/docproof@main`, which works
-and is the only way anyone can reach it today, because nothing points at it.
+been opened. Until 2026-08-18 `melbinjp/rigout` consumed the Action as
+`melbinjp/docproof@main`, because a branch was the only reachable form: there was no tag.
+`v0.1.0` exists now and rigout is pinned to it, so a gate whose own version used to move
+underneath it no longer does.
 
 **The repository already meets every file requirement.** `action.yml` sits at the root with a
 `name`, `description`, `author` and `branding` (icon and colour), which is what a listing

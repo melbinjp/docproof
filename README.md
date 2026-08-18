@@ -309,7 +309,7 @@ A gate that fails on day one gets removed on day one. `--exit-zero` prints the f
 leaves the run green, so you can adopt this while you are still working through them:
 
 ```yaml
-- uses: melbinjp/docproof@main
+- uses: melbinjp/docproof@v0.1.0
   with:
     fail-on-findings: false
 ```
@@ -369,7 +369,7 @@ never existed, so `docproof` reports that and judges nothing rather than guessin
 - uses: actions/checkout@v4
   with:
     fetch-depth: 0        # docproof needs history to tell drift from an example
-- uses: melbinjp/docproof@main
+- uses: melbinjp/docproof@v0.1.0
 ```
 
 **The action refuses to run without `fetch-depth: 0`, on purpose.** Measured on
