@@ -587,3 +587,25 @@ def test_a_path_under_no_package_root_is_still_judged(make_repo: Callable[..., P
     )
     verdict, _ = run(repo)["tools/build.py"]
     assert verdict is Verdict.BROKEN
+
+
+def test_a_decision_record_describes_a_decision_taken_then():
+    """An ADR body is frozen at authorship by convention, and projects say so themselves.
+
+    gsd-core's contributor standards: *"Amendments are appended as `## Amendment
+    (YYYY-MM-DD)` sections - the original body is never rewritten."* So a path in an
+    accepted ADR describes the tree as it was when the decision was taken, exactly like a
+    changelog entry, and reporting it argues with a policy the project wrote down.
+
+    Of 175 path findings across 134 repositories, **83 are in `adr/` or `prd/`** - the
+    single largest class. Narrow: the segment must BE the directory, so `docs/adrian/` and
+    `src/prdemo/` keep being judged.
+    """
+    from docproof.config import is_historical
+
+    assert is_historical("docs/adr/0001-dispatch-policy-module.md")
+    assert is_historical("docs/prd/2264-golden-parity-redesign.md")
+    assert is_historical("docs/decisions/use-postgres.md")
+    assert is_historical("docs/decision-records/0002-x.md")
+    assert not is_historical("docs/adrian/notes.md")
+    assert not is_historical("src/prdemo/main.py")

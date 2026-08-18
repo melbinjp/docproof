@@ -74,6 +74,20 @@ HISTORICAL = re.compile(
     rf"(?ix) (^|/) (?: {_HISTORICAL_NAMES} ) (?: \.[a-z0-9]+ )? (?: / | $ )"
     rf" | (^|/) changelog\.d/ "
     rf" | (^|/) archived? / "
+    # Decision records: an ADR body is frozen at authorship BY CONVENTION, and the projects
+    # that keep them say so themselves. gsd-core's contributor standards:
+    # *"Amendments are appended as `## Amendment (YYYY-MM-DD)` sections - the original body is
+    # never rewritten."* So a path in an accepted ADR describes the tree as it was when the
+    # decision was taken, exactly like a changelog entry, and reporting it argues with a
+    # policy the project wrote down.
+    #
+    # Measured over the whole corpus rather than sampled - which took fixing the sweep's own
+    # truncation first, because the sampled view showed none of this. Of **175 path findings
+    # across 134 repositories, 83 are in `adr/` or `prd/`**, the single largest class by a
+    # wide margin. They sit in one repository, and that is the honest weakness of the count;
+    # the rule is taken anyway on the same footing as `archive/`, because what carries it is
+    # what the directory MEANS and not how many projects happen to have one.
+    rf" | (^|/) (?: adrs? | prds? | decision[-_]?records? | decisions? ) / "
 )
 
 
@@ -109,8 +123,7 @@ TOMBSTONE = re.compile(r"(?i)^[\s>*_-]{0,8}This\s+\w+\s+(?:has been|was)\s+remov
 # Measured with the same discipline as `TOMBSTONE`, over 134 repositories: **seven documents,
 # all seven genuine** — flask's `reqcontext.rst` and `patterns/jquery.rst` ("Obsolete, see …
 # instead"), a superseded ADR in gsd-core, and four wekan migration records. Three separate
-# repositories, which is why this one is taken and the ADR-directory rule measured beside it
-# was not.
+# repositories, which made this the easiest of the three to take.
 #
 # `no longer used|maintained|accurate` matched NOTHING in the corpus and is therefore absent,
 # on the same rule that kept `deprecated/` out of `HISTORICAL`.
