@@ -662,3 +662,42 @@ def test_a_changeset_directory_needs_no_configuration(make_repo: Callable[..., P
     verdict, detail = run(repo)[".changeset/lucky-pandas-smile.md"]
     assert verdict is Verdict.SKIPPED
     assert "changelog-fragment directory" in detail
+
+
+def test_a_finding_names_where_the_file_went(make_repo: Callable[..., Path]):
+    """A finding that says only "deleted" makes the reader go and look.
+
+    `melbinjp/3000` archived a whole cluster in one commit and its onboarding guide, a
+    document that opens *"Read this FIRST"*, still names `autoforge/main.py` as the entry
+    point. Real drift, and the verdict does not change. But the file is sitting at
+    `history/autoforge/main.py`, git recorded the move, and the tool knew and did not say.
+
+    Measured on the 134-repository corpus: 23 of 89 findings were deleted by a commit git
+    calls a rename, so about a quarter of what it reports can name the replacement.
+
+    This exists because the first implementation returned `None` for every repository and
+    the failure was INVISIBLE: it fell through to the old wording, which is still true. Only
+    running it against a real repository showed it. A silent fallback needs a test more than
+    a loud one does.
+    """
+    repo = make_repo(
+        {"pyproject.toml": "[project]"},
+        renamed={"autoforge/main.py": "history/autoforge/main.py"},
+        documented_before={"README.md": "The entry point is `autoforge/main.py`.\n"},
+    )
+    verdict, detail = run(repo)["autoforge/main.py"]
+    assert verdict is Verdict.BROKEN
+    assert "moved to `history/autoforge/main.py`" in detail
+
+
+def test_a_plain_deletion_still_reads_as_a_deletion(make_repo: Callable[..., Path]):
+    """The other half: nothing was moved, so nothing may be claimed about where it went."""
+    repo = make_repo(
+        {"pyproject.toml": "[project]"},
+        deleted={"tools/gone.py": ""},
+        documented_before={"README.md": "Run `tools/gone.py` first.\n"},
+    )
+    verdict, detail = run(repo)["tools/gone.py"]
+    assert verdict is Verdict.BROKEN
+    assert "deleted in" in detail
+    assert "moved to" not in detail

@@ -163,6 +163,35 @@ class Git:
             return None
         return parts[0], parts[1], parts[2]
 
+    def moved_to(self, path: str, commit: str) -> str | None:
+        """Where the deleting commit PUT it, when git calls the deletion a rename.
+
+        **A finding that says only "deleted" makes the reader go and look.** `melbinjp/3000`
+        archived a whole cluster in one commit, `b43e0ec` *"archive dead AutoForge cluster to
+        history/"*, and its onboarding guide - a document that opens "Read this FIRST" - still
+        names `autoforge/main.py` as the entry point. That is real drift and the verdict does
+        not change. But the file is sitting at `history/autoforge/main.py`, git recorded the
+        move, and the tool knew and did not say.
+
+        Measured on the 134-repository corpus: **23 of 89 findings were deleted by a commit
+        git calls a rename**, so about a quarter of everything reported can name the
+        replacement instead of leaving it as an exercise.
+
+        This changes no verdict. It is the difference between a finding a reader has to
+        investigate and one they can act on.
+        """
+        if not self.available or self.shallow:
+            return None
+        code, out, _ = _run(["git", "show", "-M", "--name-status", "--format=", commit], self.root)
+        if code != 0:
+            return None
+        for line in out.split("\n"):
+            parts = line.split("\t")
+            # `R100\told\tnew`. The similarity score rides on the status, so `startswith`.
+            if len(parts) == 3 and parts[0].startswith("R") and parts[1] == path:
+                return parts[2]
+        return None
+
     def claim_introduced_after(self, doc: str, subject: str, commit: str) -> bool | None:
         """Whether this document first mentioned `subject` *after* `commit` removed it.
 

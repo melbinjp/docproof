@@ -59,6 +59,7 @@ def make_repo(tmp_path: Path) -> Callable[..., Path]:
         deleted: dict[str, str] | None = None,
         shallow: bool = False,
         documented_before: dict[str, str] | None = None,
+        renamed: dict[str, str] | None = None,
     ) -> Path:
         """`deleted` is committed first and then removed in a second commit.
 
@@ -87,11 +88,11 @@ def make_repo(tmp_path: Path) -> Callable[..., Path]:
         if gitignore:
             (repo / ".gitignore").write_text(gitignore, encoding="utf-8")
 
-        for name, contents in {**(deleted or {}), **(documented_before or {})}.items():
+        for name, contents in {**(deleted or {}), **(renamed or {}), **(documented_before or {})}.items():
             target = repo / name
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(contents or "placeholder\n", encoding="utf-8")
-        if deleted:
+        if deleted or renamed:
             _git(repo, "add", "-A")
             _git(
                 repo,
@@ -102,8 +103,14 @@ def make_repo(tmp_path: Path) -> Callable[..., Path]:
                 "--no-gpg-sign",
                 when=_EARLY,
             )
-            for name in deleted:
+            for name in deleted or {}:
                 _git(repo, "rm", "-q", name)
+            # `git mv` in the SAME commit as the removals: a rename is a delete
+            # and an add that git pairs by content, and pairing only happens
+            # within one commit. Split them and `git show -M` sees two events.
+            for old_name, new_name in (renamed or {}).items():
+                (repo / new_name).parent.mkdir(parents=True, exist_ok=True)
+                _git(repo, "mv", old_name, new_name)
             _git(
                 repo,
                 "commit",

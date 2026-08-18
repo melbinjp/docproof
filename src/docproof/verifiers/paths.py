@@ -569,6 +569,17 @@ class DocumentedPaths(Verifier):
                 f"a claim this repository stopped honouring",
             )
 
+        # Say where it went when git knows. About a quarter of corpus findings are
+        # renames, and naming the destination turns a finding the reader has to
+        # investigate into one they can act on. See `Git.moved_to`.
+        moved = git.moved_to(subject, commit)
+        if moved:
+            return self.broken(
+                claim,
+                f'moved to `{moved}` in {commit} ({date}, "{subject_line[:60]}"), '
+                f"and the documentation still points at the old path",
+            )
+
         return self.broken(
             claim,
             f'deleted in {commit} ({date}, "{subject_line[:60]}") and never restored, '
