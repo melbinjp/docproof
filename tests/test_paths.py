@@ -334,6 +334,63 @@ def test_a_tombstone_page_describes_the_past():
     assert not declares_removed(buried)
 
 
+def test_a_status_field_naming_a_terminal_state_silences_the_page():
+    """merman keeps a document per workstream, each opening `Status: Completed; historical
+    snapshot`, `Status: Superseded on 2026-07-15` or `Status: Closed`, and then describing
+    the tree as it stood when that work finished. 58 of 217 findings across the corpus sat
+    in 22 such documents, and neither TOMBSTONE nor RETIRED_LABEL can see them: one wants a
+    sentence about a subject, the other a line that STARTS with the word.
+
+    The VALUE is what matters, not the field. pipenv's `initiative-f-typed-design.md` opens
+    `Status: **awaiting maintainer sign-off**` - a live document waiting on a person - and
+    pipenv#6709 was filed against that very file and merged. A rule keyed on a `Status:`
+    line merely existing would have eaten an accepted contribution.
+    """
+    from docproof.config import declares_done, declares_removed
+
+    for line in (
+        "Status: Completed; historical snapshot",
+        "Status: Superseded on 2026-07-15 by `docs/alignment/STATUS.md`",
+        "Status: Complete",
+        "Status: Closed",
+        "**Status**: Done",
+        "> Status: archived",
+    ):
+        assert declares_done(line), line
+
+    for line in (
+        "Status: **awaiting maintainer sign-off**. No code change under T_F.3+",
+        "Status: Draft",
+        "Status: Proposed",
+        "Status: In Progress",
+        "Status: Active",
+        # `completed?` must not swallow a longer word that merely starts the same way.
+        "Status: Completeness review pending",
+    ):
+        assert not declares_done(line), line
+
+    merman = """# Headless Parity Deepening
+
+Status: Completed; historical snapshot
+
+body
+"""
+    assert declares_removed(merman)
+
+    pipenv = """# Typed design
+
+Status: **awaiting maintainer sign-off**
+
+body
+"""
+    assert not declares_removed(pipenv)
+
+    # Same lede rule as the other two: a status buried where no reader would see it before
+    # trusting the page must not silence it either.
+    buried = "# Title" + chr(10) + ("still here" + chr(10)) * 20 + "Status: Complete"
+    assert not declares_removed(buried)
+
+
 def test_a_changelog_describes_the_past(make_repo: Callable[..., Path]):
     """fastapi's release-notes.md alone produced 162 findings — more than every other
     document in twenty repositories combined. "0.68 moved `docs_src/websockets`" is
