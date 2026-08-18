@@ -24,6 +24,7 @@ from __future__ import annotations
 import fnmatch
 import re
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 SKIP_MARKER = re.compile(r"<!--\s*docproof:\s*skip-file\b", re.IGNORECASE)
@@ -393,3 +394,119 @@ def suppressed_lines(text: str) -> frozenset[int]:
                 covered.add(cursor + 1)
                 cursor += 1
     return frozenset(covered)
+
+
+# --- a DIRECTORY that declares its own contents non-authoritative ---------------------------
+#
+# The fifth shape, and the first one that reads a file OTHER than the document being judged.
+# The four before it are path-scoped (`HISTORICAL`), sentence-scoped (`TOMBSTONE`),
+# label-line-scoped (`RETIRED_LABEL`) and field-scoped (`declares_done`). None of them can see
+# a folder marked by its own README, which is how people actually mark a drafts folder:
+#
+#     docs/Docs_To_Review/README.md
+#     # Docs To Review (archival)
+#     Files here are internal / archival / pending-audit. They are not the source of truth.
+#
+# Twenty-nine findings sat under that sentence. Reporting them is not a wrong claim about the
+# tree - the files really are stale - it is arguing with a decision the project wrote down, in
+# the one place a reader would look for it.
+#
+# **The naive version was measured first and it was a disaster.** Matching the vocabulary
+# anywhere in a directory README silenced 95 of 217 corpus findings, 66 of them in a
+# repository whose findings had been filed as pull requests hours earlier. A rule that
+# retracts a filing is not a precision rule. Three separate defects, each visible only by
+# running it:
+#
+#   1. it matched VOCABULARY rather than declarations. One repository's `docs/README.md` has a
+#      contents-table row reading "Archived history | Preserves completed or superseded
+#      context"; another's ADR folder lists `Deprecated` as an allowed status VALUE. Neither
+#      says the folder is not current.
+#   2. the README that matched sat at `docs/`, so one loose hit silenced an entire docs tree.
+#   3. "not published" is about npm and crates.io and Maven, and says nothing about whether a
+#      document is authoritative. It caught four repositories that way.
+#
+# So this requires a CONJUNCTION - the sentence must name the directory's contents and deny
+# their authority - and it requires the naming half to OPEN the line. That second condition is
+# grammatical rather than lexical: English puts the subject first, and a folder marker is a
+# statement whose subject is the folder. It is what separates
+#
+#     "Everything in this directory is a historical record."          <- a marker
+#
+# from the two sentences the anchor removed, where the phrase is present and the sentence is
+# about something else entirely:
+#
+#     "docs/adr/0011-....md predates this directory and is preserved as immutable historical
+#      record. ... New PRDs live here."                               <- the folder is CURRENT
+#     "bender is configured via the configuration.nix file in this directory, and does not
+#      currently use Nix flakes."                                     <- about a tool
+#
+# Final measurement over 171 repositories: **two directories, both readings correct, 29
+# findings silenced, and zero of them a document behind a filing.** That last check is
+# per-document and not per-repository, which matters here more than it looks: the repository
+# in question holds two different files called `TAURI_VALIDATION_REPORT.md`, one at `docs/`
+# that a pull request was opened about and an archival copy inside the marked folder. A count
+# by repository cannot tell those apart and briefly said the opposite.
+#
+# Thin base, taken anyway, and the commercial reason is the honest one: that repository would
+# otherwise be shown 34 findings of which one is real, and a tool that cries wolf gets
+# uninstalled inside a minute whatever else is true about it.
+#
+# NOT recursive, deliberately. Only a document sitting DIRECTLY in the marked directory is
+# skipped. A marker is a statement about the things beside it, and letting it reach down
+# through subdirectories is how defect 2 above gets back in.
+_DIR_QUANT = "(?:everything|anything|all|the|these)[ ](?:files|documents|docs|of[ ]it|)[ ]?"
+_DIR_SUBJECT = (
+    "files[ ]here|files[ ]in[ ]th|documents[ ]here|documents[ ]in[ ]th|docs[ ]here"
+    "|this[ ]directory|this[ ]folder|these[ ]docs|these[ ]documents|contents[ ]of[ ]this"
+    "|everything[ ]here|anything[ ]here"
+    "|" + _DIR_QUANT + "in[ ]th(?:is|e[ ]following)[ ](?:directory|folder)"
+)
+# "not current" needs the copula in front of it: bare, it matched "does not currently use".
+_DIR_DENIAL = (
+    "not[ ]the[ ]source[ ]of[ ]truth|not[ ]authoritative|archival"
+    "|(?:is|are|were|remain)[ ]not[ ]current"
+    "|no[ ]longer[ ]maintained|pending[ ]audit|superseded|out[ ]of[ ]date|historical"
+)
+_DIR_LEAD = "^[ >*_#-]{0,8}"
+DIR_DECLARES = re.compile("(?i)" + _DIR_LEAD + "(?:" + _DIR_SUBJECT + ")[^.]{0,120}(?:" + _DIR_DENIAL + ")")
+DIR_NAMES_CONTENTS = re.compile("(?i)" + _DIR_LEAD + "(?:" + _DIR_SUBJECT + ")")
+DIR_DENIES = re.compile("(?i)(?:" + _DIR_DENIAL + ")")
+
+# The files that speak for a directory. Nothing else in it does.
+DIRECTORY_README = ("README.md", "readme.md", "README.rst", "index.md")
+
+
+def directory_disclaimer(directory: Path) -> str | None:
+    """The sentence in this directory's own README declaring its contents not current.
+
+    Returns the sentence so the caller can QUOTE it. A skip whose reason cannot be shown is
+    the same failure as a silent skip, and this one is easier to get wrong than the others
+    because the reason lives in a file the reader is not looking at.
+
+    Only the first forty lines, for the reason `declares_removed` stops at ten: a disclaimer
+    buried where nobody would see it before trusting the folder should not silence the checker
+    either.
+
+    The denial is allowed to arrive on the NEXT line, because that is how the clearest example
+    in the corpus writes it - "Files here are internal / archival / pending-audit." and then
+    "They are not the source of truth." - and a rule reading one line at a time would miss it.
+    """
+    for name in DIRECTORY_README:
+        readme = directory / name
+        if not readme.is_file():
+            continue
+        try:
+            text = readme.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        lines = [line.strip() for line in text.split("\n")[:40]]
+        for index, line in enumerate(lines):
+            if not line or len(line) > 300:
+                continue
+            if DIR_DECLARES.search(line):
+                return line
+            if DIR_NAMES_CONTENTS.search(line):
+                following = lines[index + 1] if index + 1 < len(lines) else ""
+                if following and len(following) <= 300 and DIR_DENIES.search(following):
+                    return f"{line} {following}"
+    return None
