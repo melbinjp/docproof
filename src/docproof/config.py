@@ -115,6 +115,28 @@ HISTORICAL = re.compile(
     # a date, so this rule silences none of them. That check is the point: a skip rule that
     # quietly eats real findings is worse than the noise it removes.
     r" | [0-9]{4} - [0-9]{2} - [0-9]{2} "
+    #
+    # THREE NEIGHBOURING RULES WERE MEASURED THE SAME DAY AND REJECTED. Written down so
+    # they are not re-proposed by someone who only sees that the date rule paid off.
+    #
+    # * **An absolute or home path** (`cd /Users/diego/Dev/get-shit-done`). 6 findings, ONE
+    #   repository, and four of those are the same line duplicated across translations of one
+    #   document. A path on somebody's laptop is obviously not a claim about this project, and
+    #   the rule is still rejected, because one repository is not evidence and this costs
+    #   nothing to leave.
+    #
+    # * **A plan/PRD/design/spec FILENAME**, as against the `prd/` and `adr/` DIRECTORIES
+    #   above. 8 findings, ONE repository. A directory called `adr` means what the word means;
+    #   a file called `modernization-plan.md` could just as easily be a living roadmap, and
+    #   the whole reason the directory rule was defensible on one repository was that its
+    #   semantics did not depend on the count. A filename's do.
+    #
+    # * **A date STAMPED IN THE DOCUMENT** rather than in its path, e.g. pipenv's
+    #   `**Generated**: 2026-05-12`. 7 findings, two repositories, which is the size of the
+    #   removal-verb class already rejected. It also failed on its own terms: any pattern
+    #   broad enough to catch "Generated:" catches "Last updated:", and a last-updated stamp
+    #   marks a document somebody is MAINTAINING. That rule would skip live documentation,
+    #   which is the one failure worse than the noise it removes.
 )
 
 
