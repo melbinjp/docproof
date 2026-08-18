@@ -334,6 +334,66 @@ def test_a_tombstone_page_describes_the_past():
     assert not declares_removed(buried)
 
 
+def test_a_historical_label_is_not_only_the_word_record():
+    """`merman` labels three documents as historical in wording RETIRED_LABEL could not see.
+
+        > Historical backlog, not current implementation guidance.
+        > Historical completion snapshot. References to ... removed on 2026-07-15
+        > Historical roadmap. References to root/text/SVG override tables ...
+
+    Each says outright that it is not current, and each was reported for naming files that
+    the change it describes deleted. 7 findings across 3 documents.
+
+    The noun list is CLOSED on purpose. A bare `historical \\w+` was measured and rejected:
+    it matches a live design note opening "Historical context is important here", which is
+    the opposite of a retirement label. An adjective may sit between - "completion snapshot"
+    is the real case - but the final noun must name the document's kind.
+    """
+    from docproof.config import RETIRED_LABEL
+
+    for line in (
+        "> Historical backlog, not current implementation guidance.",
+        "> Historical completion snapshot. References to override inventories",
+        "> Historical roadmap. References to root/text/SVG override tables",
+        "> **OBSOLETE - historical record.** This documents the old system",
+        "Superseded by ADR-0062",
+    ):
+        assert RETIRED_LABEL.match(line), line
+
+    for line in (
+        "Historical context is important here, so this section explains",
+        "Historical reasons led to this design",
+        "Historical background on the parser",
+        "This is a live design note",
+    ):
+        assert not RETIRED_LABEL.match(line), line
+
+
+def test_a_file_called_archive_is_an_archive_too():
+    """`HISTORICAL` already skips an `archive/` DIRECTORY. It was not looking at filenames.
+
+    `merman/docs/ARCHIVE.md` is an index of retired documents, reported for naming two ADRs
+    that were renumbered under it - which is the index doing its job. Skipping
+    `archive/adr.md` while judging `ARCHIVE.md` is not a reading of the word anyone holds.
+
+    The near misses matter more than the hits: `architecture.md` and `archiver.md` both start
+    with the same seven letters and are ordinary live documents.
+    """
+    from docproof.config import is_historical
+
+    for path in (
+        "docs/ARCHIVE.md",
+        "docs/archive.md",
+        "ARCHIVE.rst",
+        "docs/archive/adr.md",
+        "docs/archived/x.md",
+    ):
+        assert is_historical(path), path
+
+    for path in ("docs/architecture.md", "docs/archiver.md", "src/archive_util.py", "docs/README.md"):
+        assert not is_historical(path), path
+
+
 def test_a_status_field_naming_a_terminal_state_silences_the_page():
     """merman keeps a document per workstream, each opening `Status: Completed; historical
     snapshot`, `Status: Superseded on 2026-07-15` or `Status: Closed`, and then describing

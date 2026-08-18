@@ -74,6 +74,15 @@ HISTORICAL = re.compile(
     rf"(?ix) (^|/) (?: {_HISTORICAL_NAMES} ) (?: \.[a-z0-9]+ )? (?: / | $ )"
     rf" | (^|/) changelog\.d/ "
     rf" | (^|/) archived? / "
+    # A FILE called archive, not only a directory. This rule already believes the word means
+    # what it means; it simply was not looking at filenames. `merman/docs/ARCHIVE.md` is an
+    # index of retired documents and was reported for naming two ADRs that were renumbered
+    # under it - the archive index is doing exactly its job by still listing them.
+    #
+    # Consistency rather than a new claim, which is why it is taken on one document: the
+    # alternative is a rule that skips `archive/adr.md` and judges `ARCHIVE.md`, and no reading
+    # of the word supports that.
+    rf" | (^|/) archives? \.[a-z0-9]+ $ "
     # Decision records: an ADR body is frozen at authorship BY CONVENTION, and the projects
     # that keep them say so themselves. gsd-core's contributor standards:
     # *"Amendments are appended as `## Amendment (YYYY-MM-DD)` sections - the original body is
@@ -176,7 +185,26 @@ TOMBSTONE = re.compile(r"(?i)^[\s>*_-]{0,8}This\s+\w+\s+(?:has been|was)\s+remov
 #
 # `no longer used|maintained|accurate` matched NOTHING in the corpus and is therefore absent,
 # on the same rule that kept `deprecated/` out of `HISTORICAL`.
-RETIRED_LABEL = re.compile(r"(?i)^[\s>*_#-]{0,8}\**\s*(?:obsolete|superseded|historical\s+record)\b")
+#
+# `historical` takes three more nouns, and the list is deliberately closed. `merman` labels
+# three documents this way and each says outright that it is not current:
+#
+#     > Historical backlog, not current implementation guidance.
+#     > Historical completion snapshot. References to ... mechanisms removed on 2026-07-15
+#     > Historical roadmap. References to root/text/SVG override tables ...
+#
+# **A bare `historical \w+` was measured and REJECTED.** It would match a live document opening
+# "Historical context is important here", which is a normal way to begin a design note and the
+# opposite of a retirement label. Only nouns that name the whole document's kind are taken.
+#
+# Thin base, said plainly: 7 findings in 3 documents, all in one repository. That is thinner
+# than the status-field rule and thinner than `archive/`. It is taken on the same footing as
+# the ADR rule, which also rested on one repository: what carries it is that the sentence
+# means what it says, not how many projects happen to have written it.
+RETIRED_LABEL = re.compile(
+    r"(?i)^[\s>*_#-]{0,8}\**\s*(?:obsolete|superseded"
+    r"|historical\s+(?:\w+\s+)?(?:record|backlog|snapshot|roadmap))\b"
+)
 
 
 # The THIRD form, and the one both of the above miss because it is neither a sentence nor a
