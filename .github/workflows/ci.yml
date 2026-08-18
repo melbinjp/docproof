@@ -200,3 +200,51 @@ jobs:
             exit 1
           fi
           echo "The gate failed the build, as it must."
+
+  action-can-report-without-failing:
+    # The adoption mode, through the ACTION rather than the CLI. Three unit tests cover
+    # `--exit-zero`; none of them touches the input plumbing in `action.yml`, so a typo in
+    # the input name would leave `fail-on-findings: false` silently doing nothing and the
+    # first person to adopt this on a drifted repository would get a red build anyway.
+    #
+    # That is the failure mode this whole project is about, in the one feature whose entire
+    # purpose is to not fail.
+    name: The action can report without failing
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: The same drifted repository as the job above
+        run: |
+          set -e
+          mkdir -p "${RUNNER_TEMP}/adopt/tests"
+          cd "${RUNNER_TEMP}/adopt"
+          git init -q
+          git config user.email "ci@example.invalid"
+          git config user.name "docproof CI"
+          echo "def test_thing(): pass" > tests/thing.py
+          printf 'See `tests/thing.py` for the suite.\n' > README.md
+          git add -A
+          git commit -q -m "the suite, and a README that names it"
+          git rm -q tests/thing.py
+          git commit -q -m "remove the suite, leaving the README claiming it"
+
+      - id: adopt
+        continue-on-error: true
+        uses: ./
+        with:
+          path: ${{ runner.temp }}/adopt
+          fail-on-findings: 'false'
+
+      - name: It has to have SUCCEEDED, on a repository that has drift
+        run: |
+          if [ "${{ steps.adopt.outcome }}" != "success" ]; then
+            echo "::error title=fail-on-findings did not reach the CLI::The action failed a"\
+                 "run it was told not to fail. Adoption on a project that already has drift"\
+                 "is the one thing this input exists for, and it is wired through action.yml,"\
+                 "which no unit test can see."
+            exit 1
+          fi
+          echo "Reported without failing, as it must."
