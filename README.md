@@ -383,6 +383,46 @@ Suppose your entry point is `src/pkg/main.py` and you move it.
 This README uses it twice, for exactly that reason. It was the first thing running
 `docproof` on `docproof` found.
 
+### What is already skipped, and what you still have to say
+
+Some of the class above is recognised without being told. The list matters because **the
+documents it does not recognise are exactly where the remaining false positives live**, and
+nothing in a report tells you which side of the line a document fell on.
+
+Skipped automatically, on the path alone:
+
+| | |
+|---|---|
+| a path segment that *is* one of `changelog`, `changes`, `history`, `news`, `releases`, `release-notes`, `whatsnew`, `upgrade`/`upgrading`, `migrate`/`migration`/`migrating` | `docs/upgrading.md`, `docs/releasenotes/2.3.2.rst` |
+| `changelog.d/` | fragment directories |
+| `archive/`, `archived/`, or a file named `archive.*` | `docs/ARCHIVE.md` |
+| `adr/`, `adrs/`, `prd/`, `prds/`, `decisions/`, `decision-records/` | `docs/adr/0007-caching.md` |
+| any path carrying a **full** date | `docs/post-mortems/2019-02-05.md` |
+
+Still judged, and deliberately:
+
+| | why |
+|---|---|
+| `design/`, `designs/`, `workstreams/` | a folder called `design` can hold a living architecture page |
+| `rfc/`, `rfcs/`, `plan.md`, `roadmap.md` | a filename is a weak signal; `modernization-plan.md` can be a live roadmap |
+| `2026-roadmap.md` | a full date is a stamp, a bare year is a topic |
+| `migration-guide.md`, `migrations/` | the rule matches a whole segment, so neither of these is one |
+
+**What it costs to leave a planning tree in.** Hand-checking 62 findings across 44
+repositories: of the 14 that landed in a document describing a decision or a piece of work
+rather than the present tree (design notes, workstream records, ship plans and evidence logs,
+in five unrelated projects), **every single one was a false positive.** Findings in reference
+documentation over the same run were right 35 times out of 37.
+
+So if your project keeps design documents under a name not in the first table, `exclude` them
+before you read the report. Otherwise most of what you read will be this tool arguing with
+decisions you already made and wrote down. One of those fourteen was a completed cleanup
+checklist whose line read *"Remove `docs/spec/tools/mdbook-spec/`"*, reported because the
+directory it asked you to delete had been deleted.
+
+That sample is one measurement, not a law: it says what these 44 repositories did, and the
+split has not yet been reproduced on a corpus chosen after it was noticed.
+
 ## Requirements
 
 `docproof` requires Python 3.10 or newer, and `git` on the path, and **full history**.
