@@ -149,3 +149,54 @@ jobs:
             exit 1
           fi
           echo "The guard fired, as it must."
+
+  action-fails-a-build-that-has-drift:
+    # **The gate's entire purpose, and nothing tested it.** The `self` job runs the action
+    # against this repository, which is clean, so it proves the action RUNS and proves
+    # nothing about what it does when it finds something. A regression that made the CLI
+    # exit 0 on a broken claim, or a stray `|| true` in the run step, would have left every
+    # job in this file green while the gate stopped gating.
+    #
+    # That is the same failure this project exists to catch, one level up: an instrument
+    # reporting success while unable to see. The shallow-clone job is its sibling.
+    #
+    # The fixture is real drift and not a stub: a README that was TRUE when committed, and a
+    # LATER commit that deleted the file it names. That ordering is the whole difference
+    # between drift and an illustration, and a fixture that gets it wrong tests the wrong rule.
+    name: The action fails a build that has drift
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: A repository whose README names a file a later commit deleted
+        run: |
+          set -e
+          mkdir -p "${RUNNER_TEMP}/drifted/tests"
+          cd "${RUNNER_TEMP}/drifted"
+          git init -q
+          git config user.email "ci@example.invalid"
+          git config user.name "docproof CI"
+          echo "def test_thing(): pass" > tests/thing.py
+          printf 'See `tests/thing.py` for the suite.\n' > README.md
+          git add -A
+          git commit -q -m "the suite, and a README that names it"
+          git rm -q tests/thing.py
+          git commit -q -m "remove the suite, leaving the README claiming it"
+
+      - id: drift
+        continue-on-error: true
+        uses: ./
+        with:
+          path: ${{ runner.temp }}/drifted
+
+      - name: It has to have failed
+        run: |
+          if [ "${{ steps.drift.outcome }}" != "failure" ]; then
+            echo "::error title=The gate did not fail::docproof found drift and the action"\
+                 "still reported success. An action that cannot fail a build is decorative,"\
+                 "and every other job here would stay green while it stopped gating."
+            exit 1
+          fi
+          echo "The gate failed the build, as it must."
