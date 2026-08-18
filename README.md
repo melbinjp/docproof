@@ -62,7 +62,7 @@ clean bill of health nobody examined is worth less than nothing.
 - uses: actions/checkout@v4
   with:
     fetch-depth: 0        # docproof needs history to tell drift from an example
-- uses: melbinjp/docproof@v0.1.1
+- uses: melbinjp/docproof@v0.1.2
 ```
 
 **Both lines are load-bearing, and the action refuses to run without the first.**
@@ -333,7 +333,7 @@ A gate that fails on day one gets removed on day one. `--exit-zero` prints the f
 leaves the run green, so you can adopt this while you are still working through them:
 
 ```yaml
-- uses: melbinjp/docproof@v0.1.1
+- uses: melbinjp/docproof@v0.1.2
   with:
     fail-on-findings: false
 ```
@@ -393,7 +393,7 @@ never existed, so `docproof` reports that and judges nothing rather than guessin
 - uses: actions/checkout@v4
   with:
     fetch-depth: 0        # docproof needs history to tell drift from an example
-- uses: melbinjp/docproof@v0.1.1
+- uses: melbinjp/docproof@v0.1.2
 ```
 
 **The action refuses to run without `fetch-depth: 0`, on purpose.** Measured on
