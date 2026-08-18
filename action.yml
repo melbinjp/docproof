@@ -18,6 +18,13 @@ inputs:
     description: 'Run only these checks, comma separated. See `docproof --list`.'
     required: false
     default: ''
+  fail-on-findings:
+    description: >
+      Fail the run when a claim is contradicted. Set to false to adopt this on a project
+      that already has drift: findings are printed and the step stays green until you are
+      level. A check that stopped checking still fails either way.
+    required: false
+    default: 'true'
 
 runs:
   using: 'composite'
@@ -83,4 +90,5 @@ runs:
         args=()
         if [ "${{ inputs.show-skips }}" = "true" ]; then args+=(--show-skips); fi
         if [ -n "${{ inputs.only }}" ]; then args+=(--only "${{ inputs.only }}"); fi
+        if [ "${{ inputs.fail-on-findings }}" = "false" ]; then args+=(--exit-zero); fi
         "$DOCPROOF_PYTHON" -m docproof.cli "${{ inputs.path }}" ${args[@]+"${args[@]}"}

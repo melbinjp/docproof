@@ -303,6 +303,25 @@ Exit code is `0` when nothing is contradicted, `1` when something is, or when a 
 that applies to your project found nothing at all to check, which means its extraction
 stopped matching and is not a pass either.
 
+### Adding it to a project that already has drift
+
+A gate that fails on day one gets removed on day one. `--exit-zero` prints the findings and
+leaves the run green, so you can adopt this while you are still working through them:
+
+```yaml
+- uses: melbinjp/docproof@main
+  with:
+    fail-on-findings: false
+```
+
+Flip it back when you are level, and the gate keeps you there.
+
+**It suppresses the contradiction exit only.** A check that stopped checking still fails,
+because that is not a finding you are deferring, it is the tool saying it went blind, and
+there is no version of *later* that makes a blind check acceptable. The whole reason to run
+this is that a green check which judged nothing is worse than no check, and an opt-out that
+could buy one would defeat the tool with its own flag.
+
 ## Configuration
 
 Some documents are deliberately not descriptions of the present. A design note, an RFC, a

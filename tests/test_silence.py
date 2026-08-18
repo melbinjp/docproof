@@ -246,3 +246,55 @@ def test_sampling_always_includes_both_ends() -> None:
         indices = sample_indices(total)
         assert indices[0] == 0 and indices[-1] == total - 1
         assert all(0 <= index < total for index in indices)
+
+
+def test_exit_zero_reports_a_contradiction_without_failing(
+    make_repo: Callable[..., Path],
+) -> None:
+    """**A gate that fails on day one gets removed on day one.**
+
+    Adding this to a repository that already has drift breaks its build immediately, so the
+    only projects that could adopt it as-is were the ones already clean, which is exactly the
+    93% of the corpus with nothing to find. Report first, enforce once you are level: the
+    same shape every linter that got adopted had to ship.
+    """
+    repo = make_repo(
+        {"pyproject.toml": "[project]"},
+        deleted={"tools/gone.py": ""},
+        documented_before={"README.md": "Run `tools/gone.py` first."},
+    )
+    assert main([str(repo)]) == 1
+    assert main([str(repo), "--exit-zero"]) == 0
+
+
+def test_exit_zero_does_not_excuse_a_check_that_stopped_checking(
+    make_repo: Callable[..., Path],
+) -> None:
+    """The half that must NOT be optional, and the version of this test that works.
+
+    A contradiction is a finding you may reasonably defer. A check that stopped checking is
+    not a finding at all: it is the tool saying it went blind, and no version of "later"
+    makes a blind check acceptable.
+
+    **The first attempt at this test was vacuous and mutation testing caught it.** It deleted
+    the README, which takes the `vanished_documents` branch and returns 1 long before the
+    exit code is computed, so it passed with `--exit-zero` suppressing everything. This
+    EMPTIES the README instead: a document still exists, the run reaches the report, and the
+    verifier is silent while HEAD's blobs are loud. That is the litecli TREE_MISMATCH case.
+
+    If this ever passes with the guard removed, `--exit-zero` has become a way to buy a green
+    check that judged nothing, which is the one outcome this project exists to refuse.
+    """
+    repo = make_repo({"README.md": "The entry point is `src/app.py`.", "src/app.py": ""})
+    (repo / "README.md").write_text("", encoding="utf-8")
+    assert main([str(repo)]) == 1
+    assert main([str(repo), "--exit-zero"]) == 1
+
+
+def test_exit_zero_does_not_excuse_a_checkout_with_no_documents_left(
+    make_repo: Callable[..., Path],
+) -> None:
+    """The other blind case: a failed checkout left nothing on disk to read at all."""
+    repo = make_repo({"README.md": "The entry point is `src/app.py`.", "src/app.py": ""})
+    (repo / "README.md").unlink()
+    assert main([str(repo), "--exit-zero"]) == 1

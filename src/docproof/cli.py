@@ -51,6 +51,22 @@ def build_parser() -> argparse.ArgumentParser:
         default=[],
         help="also treat files matching this glob as documentation; repeatable",
     )
+    # **A gate that fails on day one gets removed on day one.**
+    #
+    # Adding this to a repository that already has drift breaks its build immediately, so
+    # the only projects that can adopt it as-is are the ones already clean, which is
+    # exactly the 93% of the corpus that has nothing to find. Every linter that got
+    # adopted shipped this: report first, enforce once you are level.
+    #
+    # It suppresses the CONTRADICTION exit only. A check that demonstrably stopped
+    # checking still fails, because that is not a finding you are deferring, it is the
+    # tool telling you it went blind, and there is no version of "later" that makes a
+    # blind check acceptable. See `Report.stopped_checking`.
+    parser.add_argument(
+        "--exit-zero",
+        action="store_true",
+        help="report contradictions without failing the run; a check that stopped checking still fails",
+    )
     parser.add_argument("--version", action="version", version=f"docproof {__version__}")
     return parser
 
@@ -136,6 +152,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"   labelled superseded by the prose above, not judged: {', '.join(sorted(superseded))}")
     print()
     print(report.render(show_skips=args.show_skips))
+    if args.exit_zero and not report.stopped_checking:
+        return 0
     return report.exit_code
 
 
