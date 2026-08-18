@@ -1,4 +1,15 @@
-name: 'docproof'
+# The listing name, and it is deliberately not the bare word.
+#
+# GitHub: "The `name` cannot match a user or organization on GitHub, unless the user or
+# organization owner is publishing the action." A User account `docproof` exists (created
+# 2024-09-06, display name DocProof, no public repos) and is not ours, so publishing this
+# as `docproof` is rejected at the point of listing - after the Developer Agreement has
+# been signed and the 2FA prompt answered, which is the worst place to find out.
+#
+# A name containing a space cannot collide with any account, because usernames cannot
+# contain one. The brand stays the first word, and `uses: melbinjp/docproof@<tag>` is the
+# repository path, which this does not touch.
+name: 'docproof documentation check'
 description: 'Check what your documentation claims against what the repository actually contains'
 author: 'The docproof Authors'
 branding:
