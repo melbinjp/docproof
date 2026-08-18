@@ -73,3 +73,37 @@ that checks documentation against reality should not fail its own check on relea
 `0.1.0` and `Development Status :: 3 - Alpha` are meant literally: four verifiers —
 `paths`, `cli-flags`, `versions`, `symbols` — each measured against the same forty public
 repositories. The output format is not stable. Nothing here is more finished than that.
+
+## One-time setup for GitHub Marketplace (the Action)
+
+The package and the Action are two separate distribution channels, and this one has never
+been opened. `melbinjp/rigout` consumes the Action as `melbinjp/docproof@main`, which works
+and is the only way anyone can reach it today, because nothing points at it.
+
+**The repository already meets every file requirement.** `action.yml` sits at the root with a
+`name`, `description`, `author` and `branding` (icon and colour), which is what a listing
+renders from.
+
+**The name is free, checked 2026-08-18:** `github.com/marketplace/actions/docproof` returns
+404, and of the 26 GitHub repositories matching "docproof", none ships an action file, so
+the unique-name requirement is not contested.
+
+**Two steps only the account owner can do:**
+
+1. Accept the **GitHub Marketplace Developer Agreement** (once per account).
+2. Tick *"Publish this Action to the GitHub Marketplace"* when the release is created.
+   **Two-factor authentication is mandatory at this step**, which is why it cannot be
+   automated from here.
+
+Publishing is immediate: an Action goes live without review once the requirements are met.
+
+## The order these have to happen in
+
+1. **PyPI pending publisher** (above). Until it exists, a `v*.*.*` tag builds and tests
+   correctly and then fails at the upload step, on purpose.
+2. **Tag the release.** `python -m build` and `twine check --strict` both pass locally as of
+   2026-08-18 on `0.1.0`, so the artifact side is not what would break.
+3. **Marketplace listing**, from that release.
+
+Tagging before step 1 puts a red run on a public repository for no gain. That is the whole
+reason the order is written down rather than assumed.
