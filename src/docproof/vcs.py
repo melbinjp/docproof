@@ -29,6 +29,12 @@ from pathlib import Path
 TIMEOUT = 30
 
 
+# How far `moved_to` will follow a chain of renames before giving up. Ten is far past
+# anything real - the worst case in the corpus is two - and it exists only so a rename cycle
+# costs a bounded number of `git show` calls rather than a hang.
+_MAX_RENAME_HOPS = 10
+
+
 def _run(args: list[str], cwd: Path, stdin: str | None = None) -> tuple[int, str, str]:
     try:
         finished = subprocess.run(
@@ -163,6 +169,20 @@ class Git:
             return None
         return parts[0], parts[1], parts[2]
 
+    def _renamed_in(self, path: str, commit: str) -> str | None:
+        """One hop: where `commit` put `path`, if git called that deletion a rename."""
+        if not self.available or self.shallow:
+            return None
+        code, out, _ = _run(["git", "show", "-M", "--name-status", "--format=", commit], self.root)
+        if code != 0:
+            return None
+        for line in out.split("\n"):
+            parts = line.split("\t")
+            # `R100\told\tnew`. The similarity score rides on the status, so `startswith`.
+            if len(parts) == 3 and parts[0].startswith("R") and parts[1] == path:
+                return parts[2]
+        return None
+
     def moved_to(self, path: str, commit: str) -> str | None:
         """Where the deleting commit PUT it, when git calls the deletion a rename.
 
@@ -179,17 +199,42 @@ class Git:
 
         This changes no verdict. It is the difference between a finding a reader has to
         investigate and one they can act on.
+
+        **FOLLOWED TO THE END, and it was one hop until 2026-08-18.** A file can be renamed
+        more than once, and reporting the first hop names a path that may itself be gone -
+        which is the worst thing this function can do, because the whole point of it is to
+        save the reader a search and it would be sending them somewhere empty.
+
+        Found on `open-gsd/gsd-core`. `docs/CONFIGURATION.md` cites
+        `sdk/shared/model-catalog.json` and the chain is two hops:
+
+            11918dcc  sdk/shared/model-catalog.json      -> get-shit-done/bin/shared/model-catalog.json
+            463cffd8  get-shit-done/bin/shared/...json   -> gsd-core/bin/shared/model-catalog.json
+
+        The old answer was the middle one. `get-shit-done/` has **zero** files at HEAD, so
+        the advice pointed into a directory that no longer exists anywhere in the tree.
+
+        So the invariant is now the one a reader assumes: **a destination is only named if it
+        is there now.** If the chain dead-ends somewhere that is not tracked, this returns
+        None and the finding says "deleted ... and never restored", which is true, instead of
+        naming a phantom. Bounded, because a rename cycle is cheaper to survive than to prove
+        impossible.
         """
-        if not self.available or self.shallow:
+        destination = self._renamed_in(path, commit)
+        if destination is None:
             return None
-        code, out, _ = _run(["git", "show", "-M", "--name-status", "--format=", commit], self.root)
-        if code != 0:
-            return None
-        for line in out.split("\n"):
-            parts = line.split("\t")
-            # `R100\told\tnew`. The similarity score rides on the status, so `startswith`.
-            if len(parts) == 3 and parts[0].startswith("R") and parts[1] == path:
-                return parts[2]
+        seen = {path, destination}
+        for _ in range(_MAX_RENAME_HOPS):
+            if self.tracks(destination):
+                return destination
+            onward = self.deleted(destination)
+            if onward is None:
+                return None
+            following = self._renamed_in(destination, onward[0])
+            if following is None or following in seen:
+                return None
+            seen.add(following)
+            destination = following
         return None
 
     def claim_introduced_after(self, doc: str, subject: str, commit: str) -> bool | None:
