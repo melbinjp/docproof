@@ -60,6 +60,7 @@ def make_repo(tmp_path: Path) -> Callable[..., Path]:
         shallow: bool = False,
         documented_before: dict[str, str] | None = None,
         renamed: dict[str, str] | None = None,
+        removal_message: str = "Farewell, it was nice knowing you",
     ) -> Path:
         """`deleted` is committed first and then removed in a second commit.
 
@@ -116,7 +117,11 @@ def make_repo(tmp_path: Path) -> Callable[..., Path]:
                 "commit",
                 "-q",
                 "-m",
-                "Farewell, it was nice knowing you",
+                # Parameterised because docproof QUOTES this message back in its
+                # explanation, so the commit subject is part of the output surface and a
+                # test cannot reach that surface while every fixture commit says the same
+                # ASCII sentence. See `test_output_encoding.py`.
+                removal_message,
                 "--no-gpg-sign",
                 when=_REMOVAL,
             )

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import sys
 from collections.abc import Sequence
 from pathlib import Path
@@ -71,7 +72,43 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def survive_a_narrow_console() -> None:
+    """Stop a character the console cannot encode from killing the whole report.
+
+    Found by running docproof on `worldmonitor` from a Windows shell: it printed the header
+    and the skip list, then died on `cli.py` line 154 with
+
+        UnicodeEncodeError: 'charmap' codec can't encode character '\\u2192'
+
+    The arrow was not ours. It came out of the documentation being quoted back in a finding,
+    so **any repository whose docs contain a character outside the console's codepage takes
+    the CLI down** - arrows, box drawing, CJK, an emoji in a heading. Our own output makes it
+    likelier still: `tree.py` and `verifiers/paths.py` carry 37 box-drawing characters, and
+    none of the four survive cp1252.
+
+    The exit code on that crash is 1, which is also the code for "claims were contradicted".
+    So a Windows user sees a failing build and a traceback where a report should be, and
+    cannot tell a broken tool from a broken document.
+
+    **CI could never have caught this.** GitHub's Windows runners hand Python a UTF-8 stdout,
+    so `docproof on docproof, through the action (windows-latest)` is green and always was.
+    The failure only exists where a real person runs it, which is the worst place to keep it.
+
+    The error handler is changed and the ENCODING IS NOT. Forcing UTF-8 would replace a crash
+    with mojibake on a legacy console, which is a quieter kind of wrong; `backslashreplace`
+    keeps whatever the terminal can already show and degrades the rest to a visible escape.
+    Where stdout is already UTF-8, which is every CI runner, this changes nothing at all.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:  # a stream someone replaced with their own object
+            continue
+        with contextlib.suppress(ValueError, OSError):
+            reconfigure(errors="backslashreplace")
+
+
 def main(argv: Sequence[str] | None = None) -> int:
+    survive_a_narrow_console()
     args = build_parser().parse_args(argv)
 
     if args.list:
