@@ -34,7 +34,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable, Iterator
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 
 from .. import tree
 from ..docs import Span, spans
@@ -242,7 +242,58 @@ GIT_COMMAND = re.compile(r"\bgit\b")
 # broken internal links. It is not this, and pretending otherwise in a comment is how a file
 # ends up describing a tool nobody wrote.
 REF_DEFINITION = re.compile(r"(?m)^\[`?([^\]`]+)`?\]:\s*\S+")
+
+# The SAME reasoning as REF_DEFINITION, applied to the form people actually write.
+#
+#     see [`docs/STATE-MD-LIFECYCLE.md`](reference/state-md.md) for the field reference
+#
+# The label is a display string that went stale; the target resolves. **Nobody following that
+# link lands anywhere wrong.** Skipping `[label]: target` while judging `[label](target)` was
+# an inconsistency rather than a position - the reference form is the rare one.
+#
+# Measured across the 134 cloned repositories before this was written:
+#   137,937 inline links, 7,426 with a path-shaped label
+#   5,529 where the label is not in the tree AND the target resolves
+#   ...but 4,838 of those resolve to a URL, and almost all are org/repo slugs used as a
+#      label - `shadcn/ui`, `encode/broadcaster` - which were never repository paths and
+#      could never have been findings
+#   687 resolve to a file on disk, which is the real class
+#   4 of the 217 corpus findings sit in it, none of them ever filed
+#
+# **A URL target earns no skip, and that is the whole safety of this rule.** This cannot
+# fetch, and when a repository deletes a file the blob URL pointing at it dies too, so
+# trusting a URL would convert a real broken reference into silence. Only a target that
+# resolves on disk is evidence that the reader arrives somewhere.
+#
+# Outside witness, which no other skip family here has: triaging `open-gsd/gsd-core#3620` a
+# maintainer listed his own out-of-scope items and named this shape unprompted - "the link
+# whose label carries a pre-Diataxis name but whose target resolves". The exclusion had
+# already been made by hand in that filing and he verified it independently.
+INLINE_LINK = re.compile(r"\[`?([^\]`]+)`?\]\(([^)]*)\)")
+
 URLISH = re.compile(r"(https?://|github\.com|gitlab\.com|\bgit@|\.git\b|\]\(|\bpip install\b)")
+
+
+def inline_link_labels(text: str, document: Path, root: Path) -> set[str]:
+    """Labels of inline links whose target resolves to a file on disk.
+
+    Returns labels only. The target is not judged here: a link target is bare text rather
+    than a backticked span, so it was never extracted as a claim in the first place. Judging
+    internal link targets is a real feature and this is not it.
+    """
+    resolved: set[str] = set()
+    for match in INLINE_LINK.finditer(text):
+        label, target = match.group(1).strip(), match.group(2).strip().split(" ")[0]
+        if not label or not target:
+            continue
+        if target.startswith(("http://", "https://", "mailto:", "#")):
+            continue  # unverifiable from here, and a dead file makes a dead blob URL
+        target = target.split("#")[0]
+        if not target:
+            continue
+        if (document.parent / target).exists() or (root / target.lstrip("/")).exists():
+            resolved.add(label)
+    return resolved
 
 
 def command_span(span: Span) -> bool:
@@ -323,6 +374,7 @@ class DocumentedPaths(Verifier):
         for document in documents:
             lines = document.text.split("\n")
             ref_labels = {m.group(1).strip() for m in REF_DEFINITION.finditer(document.text)}
+            link_labels = inline_link_labels(document.text, document.path, project.root)
             for span in spans(document.text):
                 # A directory diagram is read as a diagram: its leaves are only
                 # meaningful once indentation has been turned back into a full path.
@@ -387,6 +439,34 @@ class DocumentedPaths(Verifier):
                     if token in ref_labels:
                         continue
                     key = (project.relative(document.path), token)
+                    # The same thing in the form people actually write. VISIBLE, unlike the
+                    # reference-label drop above: this rule decides by itself that a path is
+                    # a display string, and over-firing has to show as a named skip rather
+                    # than as a report that quietly got cleaner.
+                    #
+                    # **Only when the label does not resolve**, and that condition was added
+                    # after watching it over-fire. Skipping every label whose target works
+                    # turned 85 gsd-core claims into skips to remove 3 findings: the other 82
+                    # were labels that DO name a real file, which the tool was checking
+                    # correctly and would have passed. A skip that swallows a passing check
+                    # buys nothing and costs coverage, so a label that resolves is left alone
+                    # to be judged and to hold. The count shrinking is what showed this, which
+                    # is the entire reason the skip is printed rather than dropped.
+                    if token in link_labels and key not in seen and not (project.root / token).exists():
+                        seen.add(key)
+                        yield self.skip(
+                            Claim(
+                                kind="path",
+                                subject=token,
+                                doc=document.path,
+                                line=span.line,
+                                span=source_line.strip()[:200],
+                            ),
+                            "this is the label of a link whose target resolves, so it is a "
+                            "display name rather than a claim that the path is there, and "
+                            "nobody following the link lands anywhere wrong",
+                        )
+                        continue
                     if key in seen:
                         continue
                     seen.add(key)
