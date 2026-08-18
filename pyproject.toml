@@ -4,7 +4,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "docproof"
-version = "0.1.2"
+# DYNAMIC, and that is the fix rather than a preference. This read `version = "0.1.2"`
+# while `src/docproof/__init__.py` said "0.1.0", so `docproof --version` and every
+# report header printed 0.1.0 on an install pinned to v0.1.2. Two sources of truth for
+# one number, disagreeing - which is the exact defect this tool exists to find, in this
+# tool. Hatchling reads the package attribute now, so there is one literal and the
+# build follows it. Correcting the number would have left the second copy in place.
+dynamic = ["version"]
 description = "Prove your documentation against your code. Deterministically, with receipts."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -33,6 +39,9 @@ dev = [
 
 [project.scripts]
 docproof = "docproof.cli:main"
+
+[tool.hatch.version]
+path = "src/docproof/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/docproof"]

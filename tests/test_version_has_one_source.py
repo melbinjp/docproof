@@ -1,0 +1,83 @@
+"""The version is declared once, and the build reads it from there.
+
+THE DEFECT, MEASURED 2026-08-18
+-------------------------------
+`pyproject.toml` carried `version = "0.1.2"` while `src/docproof/__init__.py` carried
+`__version__ = "0.1.0"`. Three releases had shipped and the README pinned v0.1.2, so a user
+who followed the README got a tool whose every report header read:
+
+    docproof 0.1.0 - their-repo, N document(s)
+
+`--version` said the same. The packaging metadata was right and the number the tool SAYS
+ABOUT ITSELF was two releases stale, which is a documented claim contradicted by the
+repository - the exact thing docproof is for, inside docproof.
+
+Found while checking whether the tool was fit to offer into another project's CI, after a
+gsd-core maintainer had been pointed at it.
+
+WHY THIS IS A STRUCTURAL TEST AND NOT A VALUE TEST
+--------------------------------------------------
+Asserting the two numbers are EQUAL would pass today and rot the moment someone bumps one
+of them, which is precisely how this arose. The fix was to delete the second copy: hatchling
+reads the package attribute, so there is nothing left to disagree. This test asserts THAT,
+because a rule that says "keep these in sync" is a rule somebody has to remember, and the
+whole point of this repository is that those are the rules that fail.
+"""
+
+from __future__ import annotations
+
+import re
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+PYPROJECT = ROOT / "pyproject.toml"
+INIT = ROOT / "src" / "docproof" / "__init__.py"
+
+
+def _pyproject() -> str:
+    return PYPROJECT.read_text(encoding="utf-8")
+
+
+def test_pyproject_declares_no_version_of_its_own() -> None:
+    """A static `version = "..."` under [project] is the second copy that caused this."""
+    project_block = _pyproject().split("[project]", 1)[1].split("\n[", 1)[0]
+    static = re.findall(r"^version\s*=", project_block, re.M)
+
+    assert static == [], (
+        "pyproject declares a static version again. That is the second source of truth "
+        "that printed 0.1.0 on a v0.1.2 install. Use the package attribute."
+    )
+
+
+def test_pyproject_marks_version_dynamic_and_points_at_the_package() -> None:
+    text = _pyproject()
+
+    assert 'dynamic = ["version"]' in text
+    assert "[tool.hatch.version]" in text
+    assert 'path = "src/docproof/__init__.py"' in text
+
+
+def test_the_package_carries_exactly_one_version_literal() -> None:
+    literals = re.findall(r'__version__\s*=\s*"([^"]+)"', INIT.read_text(encoding="utf-8"))
+
+    assert len(literals) == 1, f"expected one version literal, found {literals}"
+
+
+def test_the_reported_version_is_the_declared_one() -> None:
+    """What `--version` and every report header print comes from that literal.
+
+    The header is the user-visible surface that was wrong, so it is asserted directly
+    rather than trusting that importing the name is enough.
+    """
+    from docproof import __version__
+
+    declared = re.search(r'__version__\s*=\s*"([^"]+)"', INIT.read_text(encoding="utf-8"))
+    assert declared is not None
+    assert __version__ == declared.group(1)
+
+
+def test_the_version_is_a_plain_release_number() -> None:
+    """Guards the bump itself: a stray suffix or an empty string would ship silently."""
+    from docproof import __version__
+
+    assert re.fullmatch(r"\d+\.\d+\.\d+", __version__), __version__
