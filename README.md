@@ -37,6 +37,13 @@ only edit.** `docs/contributing.md` told contributors that a CI workflow runs Fl
 suite against every change. The workflow was gone, and the directory held six others and not
 that one.
 
+The header says `0.1.0` because that is what the tool printed at the time. It read its own
+version from the wrong place, so every release up to and including `0.1.2` announced itself
+as `0.1.0`. Fixed in [#9](https://github.com/melbinjp/docproof/pull/9), which is why
+`--version` and the report header now agree. The block is left uncorrected because it is a
+real run, and editing the output would make it a mock-up: the same move as editing a
+document instead of fixing the code.
+
 **It is pinned to a commit because the finding no longer exists.** It was reported as
 [click#3766](https://github.com/pallets/click/issues/3766) and closed as completed on
 2026-08-15. A maintainer replied that the removal had not been deliberate, and that it
