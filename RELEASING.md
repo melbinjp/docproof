@@ -99,11 +99,30 @@ Publishing is immediate: an Action goes live without review once the requirement
 
 ## The order these have to happen in
 
-1. **PyPI pending publisher** (above). Until it exists, a `v*.*.*` tag builds and tests
-   correctly and then fails at the upload step, on purpose.
-2. **Tag the release.** `python -m build` and `twine check --strict` both pass locally as of
-   2026-08-18 on `0.1.0`, so the artifact side is not what would break.
-3. **Marketplace listing**, from that release.
+**Corrected 2026-08-18. This section used to describe one chain, and there are two.** It
+said the PyPI publisher had to be armed first, because a tag would otherwise fail at the
+upload step. That was true of the workflow as written, and it made a step only Melbin can do
+block a step that does not need him, for a channel that does not involve PyPI.
 
-Tagging before step 1 puts a red run on a public repository for no gain. That is the whole
-reason the order is written down rather than assumed.
+The Action is installed from a **GitHub release**. A GitHub release needs a tag. That is the
+whole dependency.
+
+**Chain A, the Action (no PyPI anywhere in it):**
+
+1. **Tag the release.** The workflow checks the tag against `pyproject.toml`, confirms the
+   commit is on `main`, runs the full matrix, builds, and creates the GitHub release.
+2. **Marketplace listing**, ticked on that release. Needs the Developer Agreement once and
+   **2FA at the tick**, which is the one part that cannot come from here.
+
+**Chain B, the package:**
+
+1. **PyPI pending publisher** (above), on pypi.org, by the account owner.
+2. Set the repository variable `PYPI_ARMED` to `true`.
+3. Any tag from then on publishes to PyPI as well.
+
+Until step B2, every tag runs a job called **`PyPI was NOT published, the publisher is not
+armed`**, which prints what did not happen. The release still succeeds, because the Action
+half of it genuinely did.
+
+`python -m build` and `twine check --strict` both pass locally as of 2026-08-18 on `0.1.0`,
+so the artifact side is not what would break.

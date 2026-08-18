@@ -1,9 +1,14 @@
 name: Release
 
-# **Nothing here can publish until one thing is done on pypi.org that only a human with
-# the account can do** — see `RELEASING.md`. Until then this workflow builds, checks and
-# then fails at the last step, which is the correct behaviour for a repository whose
-# release path has never been armed.
+# **A tag ships the Action. It does not ship the package until PyPI is armed** — see
+# `RELEASING.md`. These are two distribution channels and this file used to treat them as
+# one, so a tag built, checked, and then failed at the upload step.
+#
+# Failing there was the right instinct and the wrong mechanism. The instinct: a tag must
+# never look successful when nothing was published. The mechanism was to fail the whole
+# release, which also blocked the Action, which needs no PyPI at all. Now the GitHub
+# release is always created, and when the publisher is unarmed a job named
+# `PyPI was NOT published` runs and says so. Loud, and not fatal to the half that works.
 #
 # There is deliberately **no API token anywhere**, not in a secret and not in a file.
 # Publishing uses PyPI trusted publishing: PyPI is told to trust this repository, this
@@ -89,9 +94,53 @@ jobs:
           path: dist/
           if-no-files-found: error
 
+  # **The Action and the package are two distribution channels, and this workflow wired
+  # them as one.** RELEASING.md says so itself, and then orders the steps as though they
+  # were a single chain: arm PyPI, then tag, then list on Marketplace. The middle step is
+  # mine and the outer two are his, so a tag could not happen until he had done something
+  # that the Action does not need at all.
+  #
+  # Marketplace publishes from a GitHub Release. A GitHub Release needs a tag and nothing
+  # else. PyPI is irrelevant to it. Splitting them removes one of his two blocking steps
+  # outright, and the one that remains is the tick that genuinely requires his 2FA.
+  github-release:
+    name: GitHub release, which is what the Action installs from
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-dist
+          path: dist/
+      - name: Create the release the Marketplace listing is made from
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${GITHUB_REF_NAME}" dist/* --title "${GITHUB_REF_NAME}" --generate-notes
+
+  # **Skipping loudly, because the original design failed here on purpose and it was
+  # right to.** The old comment said failing at the last step "is the correct behaviour
+  # for a repository whose release path has never been armed", and the danger in relaxing
+  # it is making a tag look successful when nothing was published. So this does not go
+  # quiet: when PyPI is unarmed a job runs whose name says so, and prints what did not
+  # happen. A grey skipped box is not a report.
+  pypi-not-armed:
+    name: PyPI was NOT published, the publisher is not armed
+    needs: build
+    if: vars.PYPI_ARMED != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Say exactly what did not happen
+        run: |
+          echo "::notice title=Nothing was published to PyPI::This tag produced a GitHub release, which is all the Action needs. It did NOT publish to PyPI, because the trusted publisher on pypi.org has never been set up. See RELEASING.md. Set the repository variable PYPI_ARMED to true once it exists."
+          echo "GitHub release: created. PyPI: not attempted."
+
   publish-pypi:
     name: Publish to PyPI
     needs: build
+    if: vars.PYPI_ARMED == 'true'
     runs-on: ubuntu-latest
     # A GitHub environment, so a required reviewer can be added to it later and this
     # becomes "ask me first" without touching the workflow.
