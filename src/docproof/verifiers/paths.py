@@ -305,11 +305,24 @@ def command_span(span: Span) -> bool:
     )
 
 
-def candidates(span: Span) -> Iterator[str]:
-    """Path-shaped tokens in a span.
+def candidates(span: Span) -> Iterator[tuple[str, int]]:
+    """(path-shaped token, the document line it is actually on) for every token in a span.
 
     Inline spans are taken whole. Fenced blocks are split on whitespace, because a
     directory tree or a command line carries several paths and each is its own claim.
+
+    **The line is per TOKEN and it used to be per SPAN.** A fenced block is one `Span` whose
+    `line` is its first body line, so every claim read out of a twenty-line block was reported
+    at the top of the block. Measured on `esengine/DeepSeek-Reasonix`: a finding came out as
+    `docs/SESSION_REFERENCE_ARCHITECTURE.md:114`, and line 114 is
+    `desktop/frontend/src/lib/types.ts`, which EXISTS. The missing file is `FileMenu.tsx`,
+    three lines further down at 117.
+
+    That is worse than a cosmetic slip. The first thing a maintainer does with a finding is
+    open the line it names, and the line they open is fine, so the report is refuted at a
+    glance by evidence the tool supplied itself. `tree.parse` already carried per-entry lines,
+    which is why directory diagrams were always right and only prose blocks and transcripts
+    were wrong.
 
     **Program output is not a claim.** black's docs show `black src/ -q` printing
     `error: cannot parse: src/black_primer/cli.py`. That module really was deleted, but
@@ -319,11 +332,11 @@ def candidates(span: Span) -> Iterator[str]:
     if not span.fenced:
         text = span.text.strip()
         if not URLISH.search(text):
-            yield text
+            yield text, span.line
         return
 
     transcript = command_span(span)
-    for line in span.text.split("\n"):
+    for offset, line in enumerate(span.text.split("\n")):
         if transcript and not PROMPT.match(line):
             continue
         if transcript and CREATES.match(re.sub(r"^\s*[$>]\s*", "", line)):
@@ -348,7 +361,7 @@ def candidates(span: Span) -> Iterator[str]:
             # Tree-drawing characters, comment markers and prompts.
             token = token.lstrip("│├└─#$>+*")
             if token and token not in qualified:
-                yield token
+                yield token, span.line + offset
 
 
 class DocumentedPaths(Verifier):
@@ -430,10 +443,10 @@ class DocumentedPaths(Verifier):
                 # "the surrounding text it was read out of". That cost a rule: whether the
                 # sentence says CREATE cannot be asked of a string that is only the path.
                 # Fenced blocks keep the token, because there the line is a whole command.
-                source_line = lines[span.line - 1] if 0 < span.line <= len(lines) else span.text
-                for token in candidates(span):
+                for token, at in candidates(span):
                     if not looks_like_a_repo_path(token):
                         continue
+                    source_line = lines[at - 1] if 0 < at <= len(lines) else span.text
                     # The document defines this as a reference-link label, so it is a link
                     # and the definition says where it goes.
                     if token in ref_labels:
@@ -459,7 +472,7 @@ class DocumentedPaths(Verifier):
                                 kind="path",
                                 subject=token,
                                 doc=document.path,
-                                line=span.line,
+                                line=at,
                                 span=source_line.strip()[:200],
                             ),
                             "this is the label of a link whose target resolves, so it is a "
@@ -474,7 +487,7 @@ class DocumentedPaths(Verifier):
                         kind="path",
                         subject=token,
                         doc=document.path,
-                        line=span.line,
+                        line=at,
                         span=source_line if not span.fenced else token,
                     )
 
