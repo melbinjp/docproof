@@ -40,16 +40,44 @@ jobs:
         with:
           python-version: "3.12"
 
+      # **THIS STEP CRASHED FOR TWO RELEASES AND THE WORKAROUND HID IT.** It read
+      # `pyproject.toml`'s `project.version`, and #9 made the version DYNAMIC to stop the
+      # package and the manifest disagreeing - so that key stopped existing and this raised
+      # KeyError. Every job after it was skipped, including the GitHub release itself.
+      #
+      # v0.1.0 to v0.1.2 were published by github-actions[bot]. v0.1.3 and v0.1.4 were
+      # published by hand, because the pipeline was dead and creating the release manually
+      # worked. It kept working, so nothing ever came back to the pipeline. A broken
+      # automation that somebody routes around stays broken and stops being visible.
+      #
+      # It reads the path OUT of pyproject rather than hardcoding it, so the gate and the
+      # build cannot drift onto different files - which is the same defect #9 fixed, and
+      # hardcoding the path here would have quietly reintroduced it.
       - name: The tag names the version the package actually carries
         run: |
           python - <<'PY'
           import os, sys, tomllib, pathlib
           tag = os.environ["GITHUB_REF_NAME"]
-          version = tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"]["version"]
+          config = tomllib.loads(pathlib.Path("pyproject.toml").read_text(encoding="utf-8"))
+          try:
+              source = pathlib.Path(config["tool"]["hatch"]["version"]["path"])
+          except KeyError:
+              sys.exit("::error::pyproject.toml declares no [tool.hatch.version] path, so "
+                       "this gate cannot know where the version lives. Fix the gate rather "
+                       "than removing it.")
+          # No backslash in this parse, deliberately, for the reason the README-pin step
+          # below gives: an escape written the usual way has reached disk as a control byte
+          # on this project before, and a check that cannot match reports nothing.
+          line = next((ln for ln in source.read_text(encoding="utf-8").splitlines()
+                       if ln.startswith("__version__")), "")
+          parts = line.split(chr(34))
+          version = parts[1] if len(parts) > 2 else ""
+          if not version:
+              sys.exit(f"::error::{source} has no __version__ line this gate can read.")
           if tag != f"v{version}":
-              sys.exit(f"::error::tag {tag} but pyproject.toml says {version}. "
+              sys.exit(f"::error::tag {tag} but {source} says {version}. "
                        f"A release under the wrong number cannot be corrected, only superseded.")
-          print(f"{tag} matches pyproject.toml {version}")
+          print(f"{tag} matches {source} {version}")
           PY
 
       - name: Every README pin of the Action names this tag
