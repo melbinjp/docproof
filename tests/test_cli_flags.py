@@ -206,3 +206,48 @@ def test_a_project_whose_cli_is_not_argparse_is_never_judged(make_repo: Callable
     verdict, detail = check(make_repo(files))["--serve"]
     assert verdict is Verdict.SKIPPED
     assert "no argparse parser" in detail
+
+
+def test_a_typer_command_is_not_judged_by_argparse_found_elsewhere(make_repo: Callable[..., Path]):
+    """`unslothai/unsloth` declares `unsloth = unsloth_cli:app`, a typer application, and its
+    README shows `unsloth start claude --as-subagent`. That option is declared at
+    `unsloth_cli/commands/start.py:340` as `typer.Option(False, "--as-subagent", ...)`.
+
+    docproof reported it BROKEN with "no parser in this project defines it", because the
+    backend, tests and scripts elsewhere in that monorepo hold enough argparse for 153 flags
+    and a complete verdict. `parsers.py` promises in its own docstring that this cannot
+    happen: *"when it says no, a flag it has not seen is unjudged."* It said yes, from the
+    wrong parsers.
+
+    The datasette rule catches a project with NO argparse. It cannot catch a monorepo that has
+    plenty, none of it behind the command being documented.
+    """
+    from docproof.parsers import argparse_flags
+
+    repo = make_repo(
+        {
+            "pyproject.toml": PYPROJECT,
+            "README.md": "Run `toolkit --as-subagent` to attach it.\n",
+            "toolkit/cli.py": (
+                "import typer\n\napp = typer.Typer()\n\nOPT = typer.Option(False, '--as-subagent')\n"
+            ),
+            # Plenty of argparse, none of it behind the console script.
+            "scripts/bench.py": PARSER,
+        }
+    )
+    flags = argparse_flags(Project(root=repo))
+    assert not flags.complete
+    assert any("which imports typer" in reason for reason in flags.reasons), flags.reasons
+    assert check(repo)["--as-subagent"][0] is Verdict.SKIPPED
+
+
+def test_an_argparse_command_still_judges(make_repo: Callable[..., Path]):
+    """The recall side of the same rule. A project whose console script really is argparse
+    keeps its complete verdict, or the fix above would have silenced the verifier everywhere.
+    docproof itself is this case: 6 flags, complete."""
+    from docproof.parsers import argparse_flags
+
+    repo = make_repo(toolkit("Run `toolkit --dryrun` first.\n"))
+    flags = argparse_flags(Project(root=repo))
+    assert flags.complete, flags.reasons
+    assert check(repo)["--dryrun"][0] is Verdict.BROKEN
