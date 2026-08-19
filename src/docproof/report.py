@@ -79,7 +79,14 @@ class Report:
         marker = WARN if verdict.alarming or verdict.kind is Silence.UNKNOWN else DASH
         return f"{marker} {outcome.verifier}: found nothing to check — {verdict.detail}."
 
-    def render(self, *, show_skips: bool = False, read: int = 0, unread: int = 0) -> str:
+    def render(
+        self,
+        *,
+        show_skips: bool = False,
+        read: int = 0,
+        unread: int = 0,
+        docs_directory: str | None = None,
+    ) -> str:
         """`read` and `unread` put the document-level coverage INTO the verdict.
 
         **Measured defect, 2026-08-19.** The coverage note prints in the header and the verdict
@@ -93,6 +100,31 @@ class Report:
         3,782** documentation files, 25.7%. Re-run over the whole tree, langwatch went from 1
         broken to 19 and cherry-studio from 23 to 111. Those runs were not clean, they were
         narrow, and only the header said so.
+
+        **`docs_directory` was added because the two ends of one report disagreed.** The
+        header already asks `likeliest_docs_directory` whether anything unread is NAMED like
+        documentation, and prints either a widen suggestion or *"none of them is named like a
+        documentation tree"*. This line then called every one of those files
+        "documentation file(s)" and divided by them. On `zhukunpenglinyutong/desktop-cc-gui`
+        the same report said, forty lines apart, that none of the 5,812 unread files looks
+        like documentation and that the verdict *"covers 1% of the documentation in this
+        project"*. 5,271 of them are an OpenSpec change-proposal tree.
+
+        Measured over 39 sweep captures, 24 of which print a coverage line: coverage runs
+        **1% to 99%, median 27.5%**, and seven repositories are under 10%. The number that
+        matters is the other one - **a directory named like documentation was found unread in
+        4 of those 24.** So in twenty cases the tool divided by a denominator it had itself
+        just judged to hold no documentation tree. One of the fourteen commonest
+        biggest-unread directories is documentation: the rest are `skills/`, `src/`,
+        `.agents/`, `crates/`, `libs/`, `ts/`, `tools/`, `mobile/`, `examples/`,
+        `benchmarks/`, `scripts/`, per-package READMEs and agent instruction files, which
+        `find_docs` excludes ON PURPOSE and whose docstring argues why.
+
+        So the percentage stays - a narrow pass must never read as a clean one, which is the
+        whole point of this paragraph existing - and the false assertion goes. The denominator
+        is markdown in the tree, not "the documentation in this project", and when something
+        unread IS named like documentation the line says so instead of leaving the reader to
+        scroll up for it.
         """
         lines: list[str] = []
         root = self.project.root
@@ -165,9 +197,17 @@ class Report:
         # fifth of the tree is as easy to misread as "nothing contradicted" over a fifth.
         if unread:
             total = read + unread
-            lines.append(
-                f"This judged {read} of {total} documentation file(s). "
-                f"{unread} were never read, so this verdict covers "
-                f"{100 * read // total}% of the documentation in this project."
-            )
+            said = f"This judged {read} of {total} documentation file(s) in the tree, {100 * read // total}%."
+            if docs_directory:
+                said += (
+                    f" The {unread} it did not read include `{docs_directory}/`, which is "
+                    f"named like a documentation tree, so this verdict is narrower than it "
+                    f"looks."
+                )
+            else:
+                said += (
+                    f" The {unread} it did not read are outside the default scope and listed "
+                    f"above; none of them is in a directory named like documentation."
+                )
+            lines.append(said)
         return "\n".join(lines)

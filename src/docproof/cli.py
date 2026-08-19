@@ -126,8 +126,13 @@ TOP_DIRECTORIES = 5
 SET_ASIDE_NAMES = 10
 
 
-def report_coverage(project: Project, unread: list[Path]) -> None:
+def report_coverage(project: Project, unread: list[Path]) -> str | None:
     """Say how much of the tree was in scope at all, whether or not any of it was missed.
+
+    Returns the directory a reader should widen to, or None when nothing unread is named
+    like documentation, so the VERDICT at the bottom can carry the same judgement this
+    header already makes. It used to be computed here and thrown away, and the two ends of
+    one report then said different things about the same number - see `Report.render`.
 
     **This prints on every run, including the clean one, and that is the whole point.** The
     other skip reports in this file stay quiet when they have nothing to say, which is right
@@ -142,7 +147,7 @@ def report_coverage(project: Project, unread: list[Path]) -> None:
     """
     if not unread:
         print("   every documentation file in the tree was in scope")
-        return
+        return None
     groups = by_directory(project.root, unread)
     shown = groups[:TOP_DIRECTORIES]
     rest = groups[TOP_DIRECTORIES:]
@@ -170,6 +175,7 @@ def report_coverage(project: Project, unread: list[Path]) -> None:
             "     none of them is named like a documentation tree; if one is, widen with "
             "--docs 'DIR/**/*.md' or [tool.docproof] docs = [\"DIR/**/*.md\"]"
         )
+    return widen
 
 
 def report_set_aside(historical: list[str], disclaimed: dict[tuple[str, str], list[str]]) -> None:
@@ -310,7 +316,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     report = Report(project=project, outcomes=outcomes)
     print(f"docproof {__version__} — {project.root.name}, {len(documents)} document(s)")
     unread = unread_documents(project.root, in_scope, tracked)
-    report_coverage(project, unread)
+    docs_directory = report_coverage(project, unread)
     report_set_aside(historical, disclaimed)
     # Same principle, one level down, and it applies harder: nobody asked for this rule.
     # A `Before:` label is the tool deciding by itself that a block is not a claim, so the
@@ -324,7 +330,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     if superseded:
         print(f"   labelled superseded by the prose above, not judged: {', '.join(sorted(superseded))}")
     print()
-    print(report.render(show_skips=args.show_skips, read=len(documents), unread=len(unread)))
+    print(
+        report.render(
+            show_skips=args.show_skips,
+            read=len(documents),
+            unread=len(unread),
+            docs_directory=docs_directory,
+        )
+    )
     if args.exit_zero and not report.stopped_checking:
         return 0
     return report.exit_code

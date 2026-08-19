@@ -172,8 +172,13 @@ def test_the_verdict_itself_says_how_much_it_covered(make_repo: Callable[..., Pa
     out = capsys.readouterr().out
     assert "Nothing contradicted." in out
     verdict = out.strip().splitlines()[-1]
-    assert "9 were never read" in verdict
-    assert "10% of the documentation" in verdict
+    assert "1 of 10 documentation file(s) in the tree, 10%" in verdict
+    # **The denominator is markdown in the tree, NOT "the documentation in this project".**
+    # `elsewhere/` is not named like documentation and the header two lines up already says
+    # so, in as many words. Asserting the old phrasing back would restore a report whose two
+    # ends disagreed about the same nine files.
+    assert "of the documentation in this project" not in verdict
+    assert "none of them is in a directory named like documentation" in verdict
 
 
 def test_a_broken_verdict_carries_the_coverage_too(make_repo: Callable[..., Path], capsys) -> None:
@@ -194,7 +199,7 @@ def test_a_broken_verdict_carries_the_coverage_too(make_repo: Callable[..., Path
     main([str(repo)])
     out = capsys.readouterr().out
     assert " broken, " in out
-    assert "4 were never read" in out.strip().splitlines()[-1]
+    assert "1 of 5 documentation file(s) in the tree, 20%" in out.strip().splitlines()[-1]
 
 
 def test_full_coverage_adds_no_sentence(make_repo: Callable[..., Path], capsys) -> None:
@@ -246,3 +251,36 @@ def test_no_documentation_tree_means_no_confident_suggestion(make_repo: Callable
     assert "none of them is named like a documentation tree" in out
     assert "--docs 'apps/**/*.md'" not in out
     assert "--docs" in out and "[tool.docproof] docs" in out
+
+
+def test_the_verdict_names_an_unread_documentation_tree(make_repo: Callable[..., Path], capsys) -> None:
+    """The two ends of one report used to disagree about the same files.
+
+    The header asks `likeliest_docs_directory` whether anything unread is NAMED like
+    documentation and prints either a widen suggestion or "none of them is named like a
+    documentation tree". The verdict then called all of them "the documentation in this
+    project" and divided by them. On `zhukunpenglinyutong/desktop-cc-gui` the same run said,
+    forty lines apart, that none of the 5,812 unread files looks like documentation and that
+    it covered "1% of the documentation in this project" - and 5,271 of them are an OpenSpec
+    change-proposal tree.
+
+    Measured over the sweep captures: coverage runs 1% to 99%, median near 27%, and the
+    biggest unread directory is `libs/`, `crates/`, `apps/`, `src/`, `packages/`, `mobile/`,
+    `examples/`, `benchmarks/`, `tools/`, `.agents/` or `.claude/` far more often than it is
+    documentation. So the percentage stays and the assertion about what those files ARE goes.
+
+    This is the other branch: when something unread really is a documentation tree, the
+    verdict has to say so, because the reader who scrolls to the last line is the one this
+    whole paragraph exists for.
+    """
+    files = {"README.md": README, "src/thing.py": "x = 1\n"}
+    for n in range(7):
+        files[f"handbook/page{n}.md"] = "# Page\n"
+    repo = make_repo(files)
+    main([str(repo)])
+    out = capsys.readouterr().out
+    verdict = out.strip().splitlines()[-1]
+    assert "`handbook/`" in verdict
+    assert "narrower than it looks" in verdict
+    # And the header still gives the actionable form, so the two ends now agree.
+    assert "--docs 'handbook/**/*.md'" in out
