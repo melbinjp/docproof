@@ -79,7 +79,21 @@ class Report:
         marker = WARN if verdict.alarming or verdict.kind is Silence.UNKNOWN else DASH
         return f"{marker} {outcome.verifier}: found nothing to check — {verdict.detail}."
 
-    def render(self, *, show_skips: bool = False) -> str:
+    def render(self, *, show_skips: bool = False, read: int = 0, unread: int = 0) -> str:
+        """`read` and `unread` put the document-level coverage INTO the verdict.
+
+        **Measured defect, 2026-08-19.** The coverage note prints in the header and the verdict
+        prints at the bottom, so the last line of a run said `Nothing contradicted. 28 claims
+        checked` while 18 of that project's 26 documentation files had never been opened. The
+        README promises the opposite in as many words: *"a clean report over two files in a
+        project with three hundred cannot be mistaken for a clean report over three hundred."*
+        Printed forty lines apart, it can be, and the line people quote is the last one.
+
+        The measurement that forced this: across nine real repositories docproof read **972 of
+        3,782** documentation files, 25.7%. Re-run over the whole tree, langwatch went from 1
+        broken to 19 and cherry-studio from 23 to 111. Those runs were not clean, they were
+        narrow, and only the header said so.
+        """
         lines: list[str] = []
         root = self.project.root
 
@@ -129,4 +143,13 @@ class Report:
             lines.append(f"Nothing contradicted. {self.checked} claims checked, {self.skipped} not judged.")
             if self.skipped and not show_skips:
                 lines.append("Run with --show-skips to see what was left unjudged and why.")
+        # Attached to the verdict itself, and to the BROKEN verdict too: "19 broken" over a
+        # fifth of the tree is as easy to misread as "nothing contradicted" over a fifth.
+        if unread:
+            total = read + unread
+            lines.append(
+                f"This judged {read} of {total} documentation file(s). "
+                f"{unread} were never read, so this verdict covers "
+                f"{100 * read // total}% of the documentation in this project."
+            )
         return "\n".join(lines)

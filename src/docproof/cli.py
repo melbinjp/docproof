@@ -292,7 +292,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         outcomes.append(outcome)
     report = Report(project=project, outcomes=outcomes)
     print(f"docproof {__version__} — {project.root.name}, {len(documents)} document(s)")
-    report_coverage(project, unread_documents(project.root, in_scope, tracked))
+    unread = unread_documents(project.root, in_scope, tracked)
+    report_coverage(project, unread)
     report_set_aside(historical, disclaimed)
     # Same principle, one level down, and it applies harder: nobody asked for this rule.
     # A `Before:` label is the tool deciding by itself that a block is not a claim, so the
@@ -306,7 +307,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if superseded:
         print(f"   labelled superseded by the prose above, not judged: {', '.join(sorted(superseded))}")
     print()
-    print(report.render(show_skips=args.show_skips))
+    print(report.render(show_skips=args.show_skips, read=len(documents), unread=len(unread)))
     if args.exit_zero and not report.stopped_checking:
         return 0
     return report.exit_code

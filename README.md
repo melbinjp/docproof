@@ -128,6 +128,22 @@ documentation files it did not read and which directories they are in, so a clea
 over two files in a project with three hundred cannot be mistaken for a clean report over
 three hundred. See [what gets read](#what-gets-read).
 
+**That sentence was printed in the header and the verdict was at the bottom, which is not the
+same promise.** A run would end `Nothing contradicted. 149 claims checked` with the coverage
+note forty lines above it, and the line anyone quotes from a CI log is the last one. So the
+verdict now carries it:
+
+```
+1 broken, 149 checked, 497 not judged.
+This judged 11 of 383 documentation file(s). 372 were never read, so this verdict
+covers 2% of the documentation in this project.
+```
+
+That is a real run against a real repository. It was measured: over nine public repositories
+docproof read **972 of 3,782** documentation files under the default scope, and re-running two
+of them across the whole tree took one from 1 finding to 19 and another from 23 to 111. Those
+runs were never clean; they were narrow, and only the header said so.
+
 ## What it checks
 
 Two things, each done properly:
