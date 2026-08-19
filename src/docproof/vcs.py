@@ -34,6 +34,12 @@ TIMEOUT = 30
 # costs a bounded number of `git show` calls rather than a hang.
 _MAX_RENAME_HOPS = 10
 
+# How many same-basename files `succeeded_by` will test for lineage. Five, because the
+# candidates are ranked by how much of the original directory chain survives and the
+# lineage proof is what accepts one - the cap only bounds the cost on a monorepo with a
+# hundred and fifty `index.ts`. The worst real case needed the third.
+_MAX_MOVE_CANDIDATES = 5
+
 
 def _run(args: list[str], cwd: Path, stdin: str | None = None) -> tuple[int, str, str]:
     try:
@@ -235,6 +241,146 @@ class Git:
                 return None
             seen.add(following)
             destination = following
+        return None
+
+    @cached_property
+    def _tracked_by_basename(self) -> dict[str, tuple[str, ...]]:
+        index: dict[str, list[str]] = {}
+        for path in self.tracked_files:
+            index.setdefault(path.rsplit("/", 1)[-1], []).append(path)
+        return {name: tuple(sorted(paths)) for name, paths in index.items()}
+
+    def _size_at(self, revision: str, path: str) -> int | None:
+        code, out, _ = _run(["git", "cat-file", "-s", f"{revision}:{path}"], self.root)
+        if code != 0:
+            return None
+        try:
+            return int(out.strip())
+        except ValueError:
+            return None
+
+    def succeeded_by(self, path: str, commit: str) -> str | None:
+        """Where the content went when the DELETING commit is not the move.
+
+        `moved_to` asks git what the deleting commit renamed, and a very common refactor
+        defeats it. A split copies a file to its new home and leaves a one-line re-export
+        behind; a later commit sweeps up the re-export. Git records that second commit as
+        a plain `D` and is right to - a one-line stub resembles nothing - so the finding
+        says "deleted and never restored", which is true of the path and false of the
+        content.
+
+        `zhukunpenglinyutong/desktop-cc-gui`, the case that forced this:
+
+            b66a616b3  "Split app-shell.tsx"    C099  app-shell-parts/modelSelection.ts
+                                                      -> app-shell/domains/modelSelection.ts
+            772b6c681  "Clean up useless code"    D   app-shell-parts/modelSelection.ts  (1 line)
+
+        Its onboarding guide - `status: active`, calibrated to the current release - lists
+        that path as a file you must edit to add an engine. The function is at line 112 of
+        the new one. Six of that project's eleven findings are this same commit pair.
+
+        THE LINEAGE IS PROVED, NOT GUESSED. The obvious version looks for a file at HEAD
+        with the same basename, and that is the rule `BARE-FILENAME-VERDICT.md` rejected
+        wearing a different hat. Measured on the 160 corpus findings that say
+        "never restored", 25 have a same-basename file at HEAD and no lineage, and reading
+        them is enough: `sdk/package.json` -> `package.json`, `pkg/registry/types.go` ->
+        `pkg/git/types.go`, `website/content/getting-started.md` ->
+        `third-party/vendor/logos-0.14.4/book/src/getting-started.md`. So a candidate is
+        only accepted when `log --follow --find-copies` from it names this exact path as an
+        ancestor. Basename is how candidates are FOUND; it is never how one is accepted.
+
+        AND THE SOURCE MUST NOT HAVE GROWN AFTER THE COPY. Ten findings had proven lineage
+        and one of them was plainly wrong:
+
+            bytebase  docs/adding-new-object-to-sdl-mode.md:492
+                      says    backend/plugin/schema/pg/generate_migration.go
+                      C077 in 044c898364 "feat: implement oracle generate migration (#16546)"
+
+        Somebody copied the Postgres implementation to start the Oracle one. Nothing moved:
+        there are four `generate_migration.go` at HEAD, one per dialect. Taking only `R` and
+        dropping `--find-copies` would remove it and would also remove desktop-cc-gui, which
+        git records as `C099`. Size at deletion does not separate it either - the true group
+        runs from 1 line to 252 and cherry-studio sits at 0.979 of its destination.
+
+        What separates them is what happened to the SOURCE after the copy landed. A file on
+        its way out is frozen; it becomes a stub, or sits untouched while callers migrate.
+        A forked sibling is developed, because it is now a second thing.
+
+            desktop-cc-gui  x6   1 -> 1 bytes-equivalent, 0 commits    move
+            bytebase        directiveUtils.ts   252 -> 252, 0 commits  move
+            cherry-studio   useToolApproval.ts  143 -> 143, 0 commits  move
+            sentry-rn       build.gradle         42 ->  22, 4 commits  move   (shrank)
+            bytebase        generate_migration 1583 -> 5192, 44        FORK   (grew)
+
+        So: refuse the candidate if the source was bigger when it was deleted than when the
+        copy landed. Nine of ten survive, and the tenth is the fork.
+
+        HONEST LIMITS. Recall is 9 of 160 findings, 5.6%, and six of the nine are one commit
+        pair in one project - this pattern is concentrated, not common, which is also why it
+        matters: a project that does one split-with-shims gets every finding mis-explained at
+        once. And the growth rule is fitted against a single negative case. It is stated this
+        way because a rule chosen from n=1 should say so.
+
+        VALIDATED BY SOMEONE ELSE. `getsentry/sentry-react-native` made this exact edit
+        unprompted in `fd677570` (2026-08-18, "docs: update CONTRIBUTING paths for the
+        monorepo layout", #6594), replacing `sample/android/build.gradle` with
+        `samples/react-native/android/build.gradle` - the destination this computes.
+
+        The verdict never changes. The path really is gone and the document really is stale.
+        This only decides whether the reader is told where to look.
+        """
+        candidates = self._tracked_by_basename.get(path.rsplit("/", 1)[-1], ())
+        if not candidates:
+            return None
+        original = set(path.split("/")[:-1])
+        ranked = sorted(
+            candidates,
+            key=lambda found: (-len(set(found.split("/")[:-1]) & original), len(found)),
+        )
+        for candidate in ranked[:_MAX_MOVE_CANDIDATES]:
+            copied_in = self._copied_from(candidate, path)
+            if copied_in is None:
+                continue
+            when_copied = self._size_at(copied_in, path)
+            when_deleted = self._size_at(f"{commit}^", path)
+            if when_copied is None or when_deleted is None:
+                continue
+            if when_deleted > when_copied:
+                continue
+            return candidate
+        return None
+
+    def _copied_from(self, destination: str, source: str) -> str | None:
+        """The commit where `source` became `destination`, as git tells it.
+
+        Asked from the destination, because that is the direction that answers. A pathspec
+        on the deleted path finds nothing - it is the source of the copy, not a file the
+        commit changed - and the query returns empty. Tested before this was written.
+        """
+        code, out, _ = _run(
+            [
+                "git",
+                "log",
+                "--follow",
+                "--find-copies",
+                "--diff-filter=CR",
+                "--name-status",
+                "--format=commit %h",
+                "--",
+                destination,
+            ],
+            self.root,
+        )
+        if code != 0:
+            return None
+        commit: str | None = None
+        for line in out.splitlines():
+            if line.startswith("commit "):
+                commit = line[len("commit ") :].strip()
+                continue
+            parts = line.split("\t")
+            if len(parts) == 3 and parts[0][:1] in {"R", "C"} and parts[1] == source:
+                return commit
         return None
 
     def claim_introduced_after(self, doc: str, subject: str, commit: str) -> bool | None:
