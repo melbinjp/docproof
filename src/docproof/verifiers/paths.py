@@ -673,6 +673,18 @@ class DocumentedPaths(Verifier):
                 f"and the documentation still points at the old path",
             )
 
+        # And when the deleting commit is only sweeping up a re-export the split left
+        # behind, git records a plain `D` and `moved_to` finds nothing. The content is
+        # still somewhere and `succeeded_by` will name it if git can prove the lineage.
+        successor = git.succeeded_by(subject, commit)
+        if successor:
+            return self.broken(
+                claim,
+                f"the content is at `{successor}`; what {commit} ({date}, "
+                f'"{subject_line[:60]}") deleted was the path, left behind by an earlier '
+                f"move, and the documentation still points at it",
+            )
+
         return self.broken(
             claim,
             f'deleted in {commit} ({date}, "{subject_line[:60]}") and never restored, '
