@@ -207,9 +207,7 @@ def test_full_coverage_adds_no_sentence(make_repo: Callable[..., Path], capsys) 
     assert "were never read" not in out
 
 
-def test_the_widen_suggestion_names_the_documentation_tree(
-    make_repo: Callable[..., Path], capsys
-) -> None:
+def test_the_widen_suggestion_names_the_documentation_tree(make_repo: Callable[..., Path], capsys) -> None:
     """**Measured over sweep batch 10, twenty-three repositories, 4,819 unread files.** The
     biggest unread directory in a real project is almost never its documentation: the top
     segments were `skills/` 429, `tools/` 176, `docs.feldera.com/` 131, `datafusion/` 123,
@@ -230,9 +228,7 @@ def test_the_widen_suggestion_names_the_documentation_tree(
     assert "--docs 'crates/**/*.md'" not in out
 
 
-def test_no_documentation_tree_means_no_confident_suggestion(
-    make_repo: Callable[..., Path], capsys
-) -> None:
+def test_no_documentation_tree_means_no_confident_suggestion(make_repo: Callable[..., Path], capsys) -> None:
     """`superset-sh/superset` has 276 unread files and not one directory named like
     documentation - `apps/ 116`, `plans/ 100`, `packages/ 21`. Naming the biggest would tell
     the reader to widen into exactly the package-internal READMEs `find_docs` excludes on

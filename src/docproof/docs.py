@@ -202,7 +202,7 @@ DOCS_DIRECTORY = re.compile(
 )
 
 
-def likeliest_docs_directory(groups: list[tuple[str, int]]) -> str:
+def likeliest_docs_directory(groups: list[tuple[str, int]]) -> str | None:
     """Which unread directory to SUGGEST widening to, given (name, count) biggest first.
 
     **Measured across the twenty-three repositories of sweep batch 10, 2026-08-19.** They hold
