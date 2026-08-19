@@ -848,3 +848,38 @@ def test_a_plain_deletion_still_reads_as_a_deletion(make_repo: Callable[..., Pat
     assert verdict is Verdict.BROKEN
     assert "deleted in" in detail
     assert "moved to" not in detail
+
+
+def test_release_notes_are_history_even_with_the_version_in_the_name():
+    """`release[-_ ]?notes` has been on `_HISTORICAL_NAMES` since the fastapi measurement,
+    and it could not see `docs/release_notes_v7.9.0.md`: after the name the pattern demanded
+    an extension or a slash, and a version number is neither.
+
+    `enarjord/passivbot` pays for that. Two of its five findings are release notes naming
+    config files deleted in later releases, and both documents are correct - the config
+    existed at the version the filename carries. Pillow escapes this only because its notes
+    sit in a `releasenotes/` DIRECTORY, which the path rule already reads.
+
+    Measured across every sweep batch, 147 finding lines: the widened pattern suppresses
+    exactly those two. The near misses are what keep it honest - a suffix that is a word,
+    not a version, still gets judged.
+    """
+    from docproof.config import is_historical
+
+    for path in (
+        "docs/release_notes_v7.9.0.md",
+        "docs/release_notes_v7.10.0.md",
+        "docs/release-notes-2.rst",
+        "CHANGELOG-1.2.md",
+        "docs/migration_v2.md",
+    ):
+        assert is_historical(path), path
+
+    for path in (
+        "docs/changelog-policy.md",
+        "docs/release-notes-process.md",
+        "docs/history-of-the-parser.md",
+        "docs/newsletter.md",
+        "README.md",
+    ):
+        assert not is_historical(path), path

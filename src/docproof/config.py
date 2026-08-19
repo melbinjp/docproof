@@ -72,7 +72,24 @@ _HISTORICAL_NAMES = (
 # document in the whole corpus and the other two matched none, which is not evidence; and
 # `TOMBSTONE` already draws the line that deprecated is not removed.
 HISTORICAL = re.compile(
-    rf"(?ix) (^|/) (?: {_HISTORICAL_NAMES} ) (?: \.[a-z0-9]+ )? (?: / | $ )"
+    # THE VERSION SUFFIX, which is this rule failing to recognise its own convention rather
+    # than a new class of document. `release[-_ ]?notes` has been on the list above since the
+    # fastapi measurement, and it matched `release-notes.md` while walking straight past
+    # `docs/release_notes_v7.9.0.md` - because after the name it demanded an extension or a
+    # slash, and a version number is neither.
+    #
+    # `enarjord/passivbot`, batch 10. Two of its five findings are `release_notes_v7.9.0.md`
+    # naming `configs/examples/default_trailing_grid_long_npos10.json` and
+    # `release_notes_v7.10.0.md` naming another config, both deleted in later releases. Both
+    # documents are correct: the config existed at the version the file is named for. Pillow
+    # gets this for free because its notes live in a `releasenotes/` DIRECTORY; a project that
+    # keeps them flat and stamps the version on the filename got judged for the same content.
+    #
+    # Measured over every sweep batch, 147 finding lines: this suppresses exactly those two
+    # and nothing else. Deliberately tight - the version must follow immediately, so
+    # `changelog-policy.md` stays judged, and so does anything whose suffix is a word.
+    rf"(?ix) (^|/) (?: {_HISTORICAL_NAMES} )"
+    rf" (?: [-_ ] v? \d+ (?: \.\d+ )* )? (?: \.[a-z0-9]+ )? (?: / | $ )"
     rf" | (^|/) changelog\.d/ "
     rf" | (^|/) archived? / "
     # A FILE called archive, not only a directory. This rule already believes the word means
