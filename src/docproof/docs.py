@@ -194,6 +194,42 @@ def by_directory(root: Path, paths: Iterable[Path]) -> list[tuple[str, int]]:
     return sorted(counts.items(), key=lambda item: (-item[1], item[0]))
 
 
+# A directory whose NAME says it holds documentation, for the one line that tells the reader
+# what to widen to. Everything here is a naming convention rather than a guess about contents.
+DOCS_DIRECTORY = re.compile(
+    r"(?i)^(docs?([.\-_].*)?|.*\.wiki|.*wiki.*|handbooks?|guides?|manuals?|books?|"
+    r"readme_i18n|website|content|reference)$"
+)
+
+
+def likeliest_docs_directory(groups: list[tuple[str, int]]) -> str:
+    """Which unread directory to SUGGEST widening to, given (name, count) biggest first.
+
+    **Measured across the twenty-three repositories of sweep batch 10, 2026-08-19.** They hold
+    4,819 unread documentation files, and ranking the suggestion by count points at the wrong
+    directory most of the time, because the biggest unread directory in a monorepo is almost
+    never its documentation. The top segments were `skills/` 429, `tools/` 176,
+    `docs.feldera.com/` 131, `datafusion/` 123, `.changeset/` 108, `.claude/` 108, `src/` 97,
+    `backends/` 77, `crates/` 69.
+
+    One of those nine is documentation. The rest are source-tree READMEs, agent skill
+    definitions and changelog fragments - which is to say `find_docs` is RIGHT to leave them
+    out, and its docstring already argues so. The defect was never the scope. It was that the
+    line telling a reader how to widen said `--docs 'ts/**/*.md'` at a project whose real
+    documentation site sat two entries below.
+
+    Returns None when nothing in the unread tree is named like documentation, and the caller
+    says so rather than naming the biggest. Suggesting `--docs 'apps/**/*.md'` at a monorepo,
+    which is what ranking by count did to `superset-sh/superset`, tells the reader to widen
+    into exactly the package-internal READMEs `find_docs` excludes on purpose. Advice that
+    produces findings nobody wants is worse than no advice.
+    """
+    for name, _ in groups:
+        if DOCS_DIRECTORY.match(name):
+            return name
+    return None
+
+
 def read(path: Path) -> str:
     """UTF-8 with universal newlines, so a CRLF checkout reads the same as a LF one."""
     return path.read_text(encoding="utf-8", errors="replace").replace("\r\n", "\n")

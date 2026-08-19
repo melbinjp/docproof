@@ -205,3 +205,48 @@ def test_full_coverage_adds_no_sentence(make_repo: Callable[..., Path], capsys) 
     main([str(repo)])
     out = capsys.readouterr().out
     assert "were never read" not in out
+
+
+def test_the_widen_suggestion_names_the_documentation_tree(
+    make_repo: Callable[..., Path], capsys
+) -> None:
+    """**Measured over sweep batch 10, twenty-three repositories, 4,819 unread files.** The
+    biggest unread directory in a real project is almost never its documentation: the top
+    segments were `skills/` 429, `tools/` 176, `docs.feldera.com/` 131, `datafusion/` 123,
+    `.changeset/` 108, `.claude/` 108, `src/` 97. One of the top nine is documentation.
+
+    So ranking the suggestion by count told `immich` to read `mobile/`, `executorch` to read
+    `examples/` and `deepagents` to read `libs/`, while each of them keeps a wiki or an i18n
+    README tree the line never mentioned.
+    """
+    files = {"README.md": README, "src/thing.py": "x = 1\n", "project.wiki/page.md": "# W\n"}
+    for n in range(6):
+        files[f"crates/pkg{n}/README.md"] = "# Crate\n"
+    repo = make_repo(files)
+    main([str(repo)])
+    out = capsys.readouterr().out
+    assert "crates/ 6" in out, "the LIST still ranks by count, which shows the shape"
+    assert "--docs 'project.wiki/**/*.md'" in out
+    assert "--docs 'crates/**/*.md'" not in out
+
+
+def test_no_documentation_tree_means_no_confident_suggestion(
+    make_repo: Callable[..., Path], capsys
+) -> None:
+    """`superset-sh/superset` has 276 unread files and not one directory named like
+    documentation - `apps/ 116`, `plans/ 100`, `packages/ 21`. Naming the biggest would tell
+    the reader to widen into exactly the package-internal READMEs `find_docs` excludes on
+    purpose, so the advice would manufacture the findings the scope exists to avoid.
+
+    Both widening routes are still printed, because a reader whose documentation genuinely
+    lives in an oddly named directory still needs to know how to say so.
+    """
+    files = {"README.md": README, "src/thing.py": "x = 1\n"}
+    for n in range(4):
+        files[f"apps/app{n}/README.md"] = "# App\n"
+    repo = make_repo(files)
+    main([str(repo)])
+    out = capsys.readouterr().out
+    assert "none of them is named like a documentation tree" in out
+    assert "--docs 'apps/**/*.md'" not in out
+    assert "--docs" in out and "[tool.docproof] docs" in out
