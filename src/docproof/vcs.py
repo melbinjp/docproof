@@ -383,6 +383,93 @@ class Git:
                 return commit
         return None
 
+    def emptied_and_stayed(self, directory: str) -> str | None:
+        """The commit that took the last file out of a directory, if it never refilled.
+
+        **A guard whose stated intent and behaviour disagreed.** `paths.py` skips a claim
+        written with a trailing slash when the directory's parent is tracked, because git
+        cannot represent an empty directory - `PostHog/posthog-python`'s RELEASING.md says
+        changesets live in `.sampo/changesets/`, that directory is emptied by every release
+        as the bot consumes them, and reporting it argues with a lifecycle. Right.
+
+        Its comment then claims the tracked-parent requirement "keeps the case this must
+        still catch: a documented directory whose entire tree really did go". It keeps none
+        of them, because a wholly removed subdirectory of a live tree has a tracked parent
+        too. `stacklok/toolhive` documents `pkg/container/verifier/` for Sigstore
+        verification; `pkg/container` is alive and `verifier` went in `7095e8e1`
+        *"Remove /verifier in favour of one coming from toolhive-core"*.
+
+        **Measured across the 47 clones of sweep batches 10 and 11**, every `--show-skips`
+        run captured to disk: the guard silences **38 directory claims, of which 31 were
+        never tracked at all** - promises, or places the reader creates, and the guard is
+        right about every one - **and 7 were populated and wholly emptied**, in four
+        repositories. None of the 38 is the churning case in this corpus, which is the shape
+        the guard was written for and which `composio/.changeset` confirms is real.
+
+        So the skip keeps its reason and gains a receipt, which is the soundness rule the
+        rest of this verifier already runs on: a path is only called broken when the
+        repository can be shown to have HAD it and dropped it.
+
+        THE REPLAY RUNS FORWARDS, and the first version of the measurement did not. Walking
+        newest-first and calling it a refill on the first add after a delete marks every
+        directory that was created before it was deleted, which is all of them; that run
+        reported zero emptied directories and put toolhive's verifier in the churn column.
+        Nothing about the output looked wrong. So: replay oldest-first, count how many times
+        the live set falls to empty, and only once means it stayed empty.
+        """
+        code, out, _ = _run(
+            [
+                "git",
+                "log",
+                "--reverse",
+                "-M",
+                "--name-status",
+                "--format=commit %h",
+                "--",
+                directory,
+            ],
+            self.root,
+        )
+        if code != 0 or not out.strip():
+            return None
+
+        wanted = directory.strip("/")
+        prefix = wanted + "/"
+
+        def inside(path: str) -> bool:
+            return path == wanted or path.startswith(prefix)
+
+        live: set[str] = set()
+        commit: str | None = None
+        emptyings: list[str] = []
+        refilled = False
+        for line in out.splitlines():
+            if line.startswith("commit "):
+                commit = line[len("commit ") :].strip()
+                continue
+            parts = line.split("\t")
+            if len(parts) < 2 or commit is None:
+                continue
+            was_empty = not live
+            status = parts[0][:1]
+            if status == "D":
+                live.discard(parts[1])
+            elif status in {"R", "C"} and len(parts) == 3:
+                if inside(parts[1]):
+                    live.discard(parts[1])
+                if inside(parts[2]):
+                    live.add(parts[2])
+            elif inside(parts[1]):
+                live.add(parts[1])
+            if live and was_empty and emptyings:
+                refilled = True
+            elif not live and not was_empty:
+                emptyings.append(commit)
+
+        if refilled or not emptyings:
+            return None
+        return emptyings[-1]
+
     def claim_introduced_after(self, doc: str, subject: str, commit: str) -> bool | None:
         """Whether this document first mentioned `subject` *after* `commit` removed it.
 
