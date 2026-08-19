@@ -14,11 +14,12 @@ hard to explain when it goes wrong. Where this scanner cannot be sure, the rule 
 
 from __future__ import annotations
 
+import os
 import re
 from bisect import bisect_right
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 DOC_SUFFIXES = (".md", ".markdown", ".rst", ".txt")
 
@@ -118,6 +119,79 @@ def find_docs(root: Path, extra: tuple[str, ...] = ()) -> list[Path]:
     for pattern in extra:
         found.extend(sorted(p for p in root.glob(pattern) if p.is_file()))
     return sorted(set(found))
+
+
+def unread_documents(root: Path, scoped: Iterable[Path], tracked: frozenset[str] | None = None) -> list[Path]:
+    """Documentation files in the project that `find_docs` never offered.
+
+    **The scope above is deliberate and its silence was not.** `find_docs` reads top-level
+    files plus `doc/` and `docs/`, and the docstring there argues for why. What nothing
+    said, until this function existed, was how much of the project that leaves out. A
+    project keeping its documentation in `guides/`, `website/content/` or `handbook/` got
+    a confident clean run over the handful of files that happened to sit at the root, and
+    the report read exactly like a run that had read everything. That is the failure this
+    tool's own README already names for claims - *"a checker that silently skips
+    everything looks exactly like a clean one"* - one level up, at the document rather
+    than the claim.
+
+    **`tracked` is what makes the number mean anything, and the first version did not have
+    it.** Walking the filesystem instead, the repository this was written in service of
+    reported **38,402 unread documents**, because it keeps 217 cloned repositories under
+    `work/` for testing. Every one of them is gitignored. Filtered to what git tracks the
+    same tree reports **294**, which is the true answer: 299 documentation files, 5 in
+    scope. A directory heuristic would have needed a new exception for every project;
+    asking the index costs one `git ls-files` and is the same truth source the rest of
+    this package already trusts.
+
+    So: a documentation file the project does not TRACK is not the project's documentation.
+    That disposes of vendored trees, build output, caches and virtualenvs at once, without
+    this module holding an opinion about any of their names.
+
+    When git cannot answer - no repository, a tarball, git not installed - it falls back to
+    walking. Pruning then happens DURING the walk rather than after it, because `rglob` has
+    no way to skip a subtree, so a filter applied to its output still descends into
+    `node_modules` to produce an answer that throws the result away.
+    """
+    scoped_relative = {p.relative_to(root).as_posix() for p in scoped}
+
+    def wanted(relative: str) -> bool:
+        parts = PurePosixPath(relative).parts
+        if Path(relative).suffix.lower() not in DOC_SUFFIXES:
+            return False
+        if relative in scoped_relative:
+            return False
+        return not (SKIP_DIRS & set(parts[:-1]))
+
+    if tracked is not None:
+        return [root / rel for rel in sorted(tracked) if wanted(rel)]
+
+    found: list[Path] = []
+    for dirpath, dirnames, filenames in os.walk(root):
+        # In place, and it has to be: os.walk reads this list back to decide where to go.
+        dirnames[:] = sorted(d for d in dirnames if d not in SKIP_DIRS)
+        here = Path(dirpath)
+        for name in sorted(filenames):
+            path = here / name
+            if wanted(path.relative_to(root).as_posix()):
+                found.append(path)
+    return found
+
+
+def by_directory(root: Path, paths: Iterable[Path]) -> list[tuple[str, int]]:
+    """(top-level directory, count) for a set of paths, biggest first.
+
+    Grouped rather than listed because the useful question is *which part of my tree did
+    it not read*, and a project with three hundred unread files wants one line naming
+    `website/`, not three hundred lines. The grouping is also what makes the number
+    self-auditing: `.changeset/ 40` is instantly recognisable as fragments nobody wants
+    checked, where a bare total of 340 would look like a problem.
+    """
+    counts: dict[str, int] = {}
+    for path in paths:
+        parts = path.relative_to(root).parts
+        top = parts[0] if len(parts) > 1 else "."
+        counts[top] = counts.get(top, 0) + 1
+    return sorted(counts.items(), key=lambda item: (-item[1], item[0]))
 
 
 def read(path: Path) -> str:

@@ -18,10 +18,11 @@ from .config import (
     superseded_lines,
     suppressed_lines,
 )
-from .docs import find_docs, read
+from .docs import by_directory, find_docs, read, unread_documents
 from .history import classify, vanished_documents
 from .project import Project, find_root
 from .report import Report
+from .vcs import Git
 from .verifiers.base import Document, Verifier
 from .verifiers.cli_flags import DocumentedFlags
 from .verifiers.paths import DocumentedPaths
@@ -115,6 +116,45 @@ def survive_a_narrow_console() -> None:
             reconfigure(errors="backslashreplace")
 
 
+TOP_DIRECTORIES = 5
+SET_ASIDE_NAMES = 10
+
+
+def report_coverage(project: Project, unread: list[Path]) -> None:
+    """Say how much of the tree was in scope at all, whether or not any of it was missed.
+
+    **This prints on every run, including the clean one, and that is the whole point.** The
+    other skip reports in this file stay quiet when they have nothing to say, which is right
+    for them: the count of documents they set aside is visible in the header line beside the
+    count they judged. Documents that were never DISCOVERED have no such counterpart. Left
+    silent, "4 document(s)" over a tree of 168 is indistinguishable from "4 document(s)"
+    over a tree of 4, and the reader has no way to tell which one they are looking at.
+
+    The directory list is capped at five, and the line says so with the remainder counted -
+    a truncated list under an untruncated total is how a reader concludes from an absence
+    somebody else manufactured.
+    """
+    if not unread:
+        print("   every documentation file in the tree was in scope")
+        return
+    groups = by_directory(project.root, unread)
+    shown = groups[:TOP_DIRECTORIES]
+    rest = groups[TOP_DIRECTORIES:]
+    where = ", ".join(f"{name}/ {count}" for name, count in shown)
+    if rest:
+        where += f", and {len(rest)} more director{'y' if len(rest) == 1 else 'ies'} holding "
+        where += str(sum(count for _, count in rest))
+    print(
+        f"   {len(unread)} documentation file(s) elsewhere in the tree were NOT read; the "
+        f"default scope is top-level files plus doc/ and docs/"
+    )
+    print(f"     {where}")
+    print(
+        f"     read them too with --docs '{groups[0][0]}/**/*.md' or "
+        f'[tool.docproof] docs = ["{groups[0][0]}/**/*.md"]'
+    )
+
+
 def report_set_aside(historical: list[str], disclaimed: dict[tuple[str, str], list[str]]) -> None:
     """Name every document that was found and deliberately not judged, and why.
 
@@ -127,7 +167,18 @@ def report_set_aside(historical: list[str], disclaimed: dict[tuple[str, str], li
     told "No documentation found", which is the same lie in a friendlier voice.
     """
     if historical:
-        print(f"   describing the past, not judged: {', '.join(sorted(historical))}")
+        # **Capped, with the remainder counted, and that was learned from trino.** This list
+        # was unbounded, and trino keeps 330 release notes under `docs/src/main/sphinx/release/`.
+        # The run printed every one of their filenames on a single line thousands of characters
+        # long, which buried the report underneath it and told the reader nothing that the
+        # count does not. Ten names is enough to see WHAT KIND of document was set aside,
+        # which is the only question a reader has here.
+        #
+        # The remainder is stated rather than trimmed away. A truncated list under no total
+        # is how somebody concludes from an absence the tool manufactured.
+        shown = sorted(historical)[:SET_ASIDE_NAMES]
+        tail = "" if len(historical) <= SET_ASIDE_NAMES else f", and {len(historical) - SET_ASIDE_NAMES} more"
+        print(f"   describing the past, not judged ({len(historical)}): {', '.join(shown)}{tail}")
     # The directory reason is QUOTED, and it has to be. Every other skip can be audited by
     # opening the document that was skipped; this one's reason lives in a neighbouring file
     # the reader is not looking at, so a bare count would be a skip nobody could check.
@@ -151,6 +202,9 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     project = Project(root=find_root(Path(args.path)))
     config = Config.from_pyproject(project.pyproject)
+    # An empty set means git could not answer, NOT that the project tracks nothing;
+    # passing it through as-is would report every document as read.
+    tracked = Git(root=project.root).tracked_files or None
 
     documents = []
     historical: list[str] = []
@@ -158,7 +212,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     # list the files under it rather than repeating a disclaimer thirty times.
     disclaimed: dict[tuple[str, str], list[str]] = {}
     read_directory: dict[Path, str | None] = {}
-    for path in find_docs(project.root, tuple(args.docs) + config.docs):
+    # Held rather than iterated directly, because `unread_documents` needs to know what WAS
+    # in scope. Comparing against `documents` instead would double-count: a document set
+    # aside as historical or disclaimed was found, and `report_set_aside` already names it.
+    in_scope = find_docs(project.root, tuple(args.docs) + config.docs)
+    for path in in_scope:
         relative = project.relative(path)
         if config.excludes(relative):
             continue
@@ -208,6 +266,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         # found" here would be the same lie in a friendlier voice, so the reasons are
         # printed on this path exactly as they are on the ordinary one.
         print(f"docproof {__version__} — {project.root.name}, every document set aside")
+        report_coverage(project, unread_documents(project.root, in_scope, tracked))
         report_set_aside(historical, disclaimed)
         print()
         print("Nothing was judged, and each reason is above. Nothing to prove.")
@@ -233,6 +292,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         outcomes.append(outcome)
     report = Report(project=project, outcomes=outcomes)
     print(f"docproof {__version__} — {project.root.name}, {len(documents)} document(s)")
+    report_coverage(project, unread_documents(project.root, in_scope, tracked))
     report_set_aside(historical, disclaimed)
     # Same principle, one level down, and it applies harder: nobody asked for this rule.
     # A `Before:` label is the tool deciding by itself that a block is not a claim, so the

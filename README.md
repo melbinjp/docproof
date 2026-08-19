@@ -123,6 +123,11 @@ documented path.
 Every skip carries a reason and `--show-skips` prints all of them, because a checker that
 silently skips everything looks exactly like a clean one.
 
+The same rule applies one level up, to whole documents. Every run says how many
+documentation files it did not read and which directories they are in, so a clean report
+over two files in a project with three hundred cannot be mistaken for a clean report over
+three hundred. See [what gets read](#what-gets-read).
+
 ## What it checks
 
 Two things, each done properly:
@@ -382,6 +387,34 @@ Suppose your entry point is `src/pkg/main.py` and you move it.
 
 This README uses it twice, for exactly that reason. It was the first thing running
 `docproof` on `docproof` found.
+
+### What gets read
+
+Top-level documentation files, plus everything under `doc/` or `docs/`. Not every Markdown
+file in the tree: a fixture, a vendored README or a changelog fragment deep in a package is
+not a promise the project is making.
+
+**Every run says what that left out**, because the scope being deliberate does not make its
+silence harmless:
+
+```
+docproof 0.1.4 - myproject, 6 document(s)
+   41 documentation file(s) elsewhere in the tree were NOT read; the default scope is top-level files plus doc/ and docs/
+     guides/ 22, website/ 14, handbook/ 4, .github/ 1
+     read them too with --docs 'guides/**/*.md' or [tool.docproof] docs = ["guides/**/*.md"]
+```
+
+and when there is nothing outside the scope it says that instead, so the line is never
+missing:
+
+```
+   every documentation file in the tree was in scope
+```
+
+Only files the project **tracks in git** are counted. A gitignored tree is not your
+documentation, and the alternative measures the wrong thing badly: on one repository that
+keeps 217 cloned repositories for testing, walking the filesystem reported 38,402 unread
+documents against a true figure of 294.
 
 ### What is already skipped, and what you still have to say
 
