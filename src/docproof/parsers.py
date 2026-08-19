@@ -23,6 +23,7 @@ cheaper than the surprise.
 from __future__ import annotations
 
 import ast
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -191,7 +192,67 @@ def argparse_flags(project: Project) -> FlagSet:
             "no argparse parser was found in this project, so its command line is built "
             "with something this cannot read — click, typer, cleo or a hand-rolled parser"
         )
+    for command, package in _console_script_packages(project):
+        elsewhere = _built_with_something_else(project, package)
+        if elsewhere:
+            flags.incomplete(
+                f"`{command}` is `{package}`, which imports {elsewhere}, so its options are "
+                f"declared where this cannot read them however much argparse the rest of the "
+                f"repository contains"
+            )
     return flags
+
+
+# **`seen_a_parser` is repository-wide, and a monorepo is not one program.** The datasette
+# rule above catches a project with NO argparse. It does not catch `unslothai/unsloth`, whose
+# console script is a typer app in `unsloth_cli/` and whose backend, tests and scripts contain
+# enough argparse for 153 flags and a `complete: True`. Its README shows
+# `unsloth start claude --as-subagent`, declared at `unsloth_cli/commands/start.py:340` as
+# `typer.Option(False, "--as-subagent", ...)`, and the verifier reported it BROKEN with the
+# sentence "no parser in this project defines it".
+#
+# That is the one thing this file's docstring promises cannot happen: *"when it says no, a flag
+# it has not seen is unjudged."* It said yes, from the wrong parsers.
+#
+# So completeness is asked of the COMMAND, not of the repository. The console script names its
+# module; if that package reaches for click or typer, the argparse set cannot describe it.
+CLI_FRAMEWORKS = ("typer", "click", "cleo", "docopt", "fire")
+
+
+def _console_script_packages(project: Project) -> list[tuple[str, str]]:
+    """(command, top-level module) for each declared console script, deduplicated."""
+    out, seen = [], set()
+    for command, target in project.console_scripts.items():
+        package = target.split(":", 1)[0].split(".", 1)[0].strip()
+        if package and (command, package) not in seen:
+            seen.add((command, package))
+            out.append((command, package))
+    return out
+
+
+def _built_with_something_else(project: Project, package: str) -> str:
+    """Which CLI framework this package imports, or empty.
+
+    Reads the package's own files only. A framework imported by a sibling tool in the same
+    repository says nothing about this command, and widening it to the whole tree would
+    silence the verifier on every repository that vendors an example.
+    """
+    directory = project.root / package
+    if not directory.is_dir():
+        single = project.root / (package + ".py")
+        files = [single] if single.is_file() else []
+    else:
+        files = [p for p in directory.rglob("*.py") if p.is_file()]
+    found: set[str] = set()
+    for path in files[:400]:  # a package with more files than this has been found already
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        for name in CLI_FRAMEWORKS:
+            if re.search(r"^\s*(?:import|from)\s+" + name + r"\b", text, re.MULTILINE):
+                found.add(name)
+    return " and ".join(sorted(found))
 
 
 def wrapper_flags(project: Project) -> set[str]:
