@@ -81,3 +81,46 @@ def test_the_version_is_a_plain_release_number() -> None:
     from docproof import __version__
 
     assert re.fullmatch(r"\d+\.\d+\.\d+", __version__), __version__
+
+
+# THE GAP THIS FILE LEFT OPEN, FOUND 2026-08-19
+# ---------------------------------------------
+# `test_pyproject_declares_no_version_of_its_own` asserts that `project.version` is ABSENT.
+# `.github/workflows/release.yml` read exactly that key to decide whether the tag matched the
+# package. Both facts lived in this repository and nothing compared them, so the release gate
+# raised KeyError on every tag from v0.1.3 onward and every job behind it was skipped -
+# including the GitHub release the Action installs from.
+#
+# It stayed invisible because the workaround worked: v0.1.0 to v0.1.2 were published by
+# github-actions[bot], and v0.1.3 and v0.1.4 by hand. A broken automation somebody routes
+# around is a broken automation nobody sees.
+WORKFLOWS = ROOT / ".github" / "workflows"
+
+
+def test_no_workflow_reads_a_static_project_version() -> None:
+    """The key the first test guarantees is missing must not be what a gate depends on."""
+    offenders = [
+        path.name
+        for path in sorted(WORKFLOWS.glob("*.yml"))
+        if '["project"]["version"]' in path.read_text(encoding="utf-8")
+    ]
+
+    assert offenders == [], (
+        f"{offenders} read pyproject's project.version, which this file's first test "
+        "asserts is absent. That combination crashed the release gate for two releases."
+    )
+
+
+def test_the_release_gate_reads_the_same_file_the_build_does() -> None:
+    """Reading the version from a hardcoded path would be the second source of truth again.
+
+    Asserted on the workflow text rather than by running it, because a release workflow can
+    only be exercised by tagging, and a check that can only run at the moment it is needed is
+    the one that is not there when it is.
+    """
+    release = (WORKFLOWS / "release.yml").read_text(encoding="utf-8")
+
+    assert '["tool"]["hatch"]["version"]["path"]' in release, (
+        "release.yml no longer resolves the version file through [tool.hatch.version]. "
+        "Hardcoding it lets the gate and the build drift onto different files."
+    )
