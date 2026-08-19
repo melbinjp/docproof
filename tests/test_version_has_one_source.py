@@ -124,3 +124,34 @@ def test_the_release_gate_reads_the_same_file_the_build_does() -> None:
         "release.yml no longer resolves the version file through [tool.hatch.version]. "
         "Hardcoding it lets the gate and the build drift onto different files."
     )
+
+
+def test_the_readme_sample_report_shows_the_current_version() -> None:
+    """The README's ILLUSTRATIVE sample report carries a version, and it went stale.
+
+    It read `docproof 0.1.4` while the package moved on: the same drift the action pins
+    already have a gate for, in the same file, unguarded.
+
+    **Placeholder samples only, and the exclusion is the interesting half.** The README also
+    opens with a verbatim run against `pallets/click` whose header says `docproof 0.1.0`, and
+    that one must NOT be updated. The README says why, at length: the tool misreported its own
+    version until #9, the block is a real transcript, and *"editing the output would make it a
+    mock-up: the same move as editing a document instead of fixing the code."*
+
+    The first version of this test asserted every header matched and failed on exactly that
+    block - correctly, and with the wrong remedy. A check that would force a true record to be
+    falsified is worse than no check, so this reads only headers naming the placeholder
+    project. A transcript names a real repository; a sample names `myproject`.
+    """
+    from docproof import __version__
+
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    samples = re.findall(r"^docproof (\d+\.\d+\.\d+) . myproject", readme, re.M)
+
+    assert samples, "the README shows no placeholder sample report header to check"
+    wrong = sorted({s for s in samples if s != __version__})
+    assert wrong == [], (
+        f"README sample report shows {wrong} but the package is {__version__}. "
+        "A tool whose argument is that documentation drifts does not get to print a "
+        "version it is not."
+    )
