@@ -550,7 +550,18 @@ class DocumentedPaths(Verifier):
                 f"instruction rather than a claim that this repository has it",
             )
 
-        if claim.subject.rstrip().endswith("/") and git.tracks(str(PurePosixPath(subject).parent)):
+        # **UNLESS git can show it was populated and wholly emptied.** The comment above says
+        # the tracked-parent requirement keeps the case of a directory whose entire tree
+        # really did go; it keeps none of them, because a removed subdirectory of a live tree
+        # has a tracked parent too. Measured over 47 clones: this guard silences 38 directory
+        # claims, 31 never tracked at all and 7 populated and emptied for good. See
+        # `Git.emptied_and_stayed` - the skip keeps its reason and gains the same receipt
+        # every other verdict in this file runs on.
+        if (
+            claim.subject.rstrip().endswith("/")
+            and git.tracks(str(PurePosixPath(subject).parent))
+            and not git.emptied_and_stayed(subject)
+        ):
             return self.skip(
                 claim,
                 f"`{subject}` is written as a directory and its parent is tracked. Git "

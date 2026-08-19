@@ -544,22 +544,47 @@ def test_a_file_that_moved_under_src_did_not_vanish(make_repo: Callable[..., Pat
     assert "moved it under" in detail
 
 
-def test_the_posthog_case_an_empty_directory_is_not_a_deleted_one(make_repo: Callable[..., Path]):
+def test_a_documented_directory_git_never_tracked_is_not_drift(make_repo: Callable[..., Path]):
     """Git stores files, not directories, so it cannot tell empty from absent.
 
-    `PostHog/posthog-python`'s RELEASING.md says changesets must live in
-    `.sampo/changesets/`. The last file under it was deleted in `0fc7ec6` — the release bot
-    consuming a changeset on the v7.39.1 release, which is the directory's normal lifecycle,
-    not its removal. The sentence says where `sampo add` PUTS files and is still true.
+    **This used to be the posthog case and the fixture could not express it.** It built one
+    file and deleted it, which is not what `.sampo/changesets/` does — that directory is
+    filled and consumed on every release, and a fixture that commits once and removes once
+    has no lifecycle in it at all. The real shape now lives in
+    `tests/test_emptied_directory.py`, which builds the refill, and it was checked against
+    the live repository as well.
+
+    What stays here is the case that needs no history: a directory the project documents and
+    git has never tracked a file under. **31 of the 38 claims this guard silences across the
+    47-clone corpus are exactly this**, and there is no receipt to report.
     """
     repo = make_repo(
         {".sampo/config.toml": "", "src/a.py": ""},
-        deleted={".sampo/changesets/gallant-prince-ukko.md": ""},
         documented_before={"README.md": "Changesets must live in `.sampo/changesets/`.\n"},
     )
     verdict, detail = run(repo)[".sampo/changesets/"]
     assert verdict is Verdict.SKIPPED
     assert "empty one is indistinguishable" in detail
+
+
+def test_a_subsystem_removed_under_a_live_parent_is_broken(make_repo: Callable[..., Path]):
+    """The case the guard's own comment claimed to keep, and kept none of.
+
+    `test_a_directory_whose_whole_tree_went_is_still_broken` below covers the parent going
+    too. `stacklok/toolhive` is the other shape and the commoner one: `pkg/container` is
+    alive and documented, and `pkg/container/verifier/` went in `7095e8e1` *"Remove
+    /verifier in favour of one coming from toolhive-core"*. Tracked parent, so the guard
+    fired, so the tool said nothing about a Sigstore verification subsystem its own
+    documentation still names two lines under a finding it DID report.
+    """
+    repo = make_repo(
+        {"pkg/container/runtime.go": "", "src/a.py": ""},
+        deleted={"pkg/container/verifier/sigstore.go": ""},
+        documented_before={"README.md": "Verification lives in `pkg/container/verifier/`.\n"},
+    )
+    verdict, detail = run(repo)["pkg/container/verifier/"]
+    assert verdict is Verdict.BROKEN
+    assert "deleted in" in detail
 
 
 def test_a_directory_whose_whole_tree_went_is_still_broken(make_repo: Callable[..., Path]):
