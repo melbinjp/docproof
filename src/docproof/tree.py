@@ -121,9 +121,60 @@ def looks_like_a_tree(text: str) -> bool:
     # token rather than a statement.
     if not any(line[:1] in " \t" for line in lines):
         return False
-    if not any(line.rstrip().endswith("/") for line in lines):
+    if all(len(line.split()) == 1 and not set(line) & set("=(){};") for line in lines):
+        return any(line.rstrip().endswith("/") for line in lines)
+    return _described_tree(lines)
+
+
+def _path_shaped(token: str) -> bool:
+    """Is this token, on its own, unambiguously a path rather than a word?
+
+    Deliberately strict. It is the ONLY thing standing between the relaxed branch below
+    and reading an options list or a shell transcript as a directory layout, so a bare
+    word is not enough: the token has to carry a slash or a file extension.
+    """
+    if set(token) & set("=(){};,\"'`*?<>|"):
         return False
-    return all(len(line.split()) == 1 and not set(line) & set("=(){};") for line in lines)
+    if "/" in token:
+        return True
+    stem, dot, extension = token.rpartition(".")
+    return bool(stem and dot and extension.isalnum() and len(extension) <= 5)
+
+
+def _described_tree(lines: list[str]) -> bool:
+    """A layout whose entries are followed by a DESCRIPTION, with no comment marker.
+
+    ```text
+    ts/                TypeScript SDK workspace
+      packages/core/       @composio/core
+      packages/providers/  Provider adapters
+    python/            Python SDK and provider packages
+    ```
+
+    **This is `ComposioHQ/composio`'s README and it produced a false positive.** The
+    branch above requires every line to be a single token, and requires a line to END in
+    a slash; both fail here, because the description sits where the slash would be. So
+    the block was not a tree, and the plain path reader took `packages/providers/` as a
+    path from the repository ROOT. It is at `ts/packages/providers`, and it exists.
+
+    Worse than an ordinary false positive, because of what triggers it: the finding only
+    appears when the path ALSO existed at the root once, since that is what gives it a
+    deletion commit to cite. composio moved `packages/` under `ts/` in 2025-06-16. So the
+    misreading selects precisely for projects that reorganised, which are the projects
+    whose diagrams are most worth checking.
+
+    The relaxation is confined to the FIRST token of each line. Every one of them must be
+    path-shaped, so `Options:` / `--verbose` and `python -m pytest` are still not trees,
+    and at least one must end in a slash, so a plain list of files is not a layout.
+    `parse` already reads the name as `name.split(" ")[0]`, which is why nothing below
+    this function had to change to understand the description column.
+    """
+    firsts = [line.split()[0] for line in lines if line.split()]
+    if len(firsts) != len(lines):
+        return False
+    if not any(token.endswith("/") for token in firsts):
+        return False
+    return all(_path_shaped(token) for token in firsts)
 
 
 def parse(text: str, first_line: int) -> list[Entry]:
