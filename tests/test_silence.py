@@ -298,3 +298,35 @@ def test_exit_zero_does_not_excuse_a_checkout_with_no_documents_left(
     repo = make_repo({"README.md": "The entry point is `src/app.py`.", "src/app.py": ""})
     (repo / "README.md").unlink()
     assert main([str(repo), "--exit-zero"]) == 1
+
+
+def test_a_verifier_that_checked_nothing_is_not_printed_with_a_tick(
+    make_repo: Callable[..., Path], capsys
+) -> None:
+    """**`ok symbols: 0 checked`** is the sentence this tool exists to stop appearing anywhere,
+    and docproof printed it about itself. Found by running it cold on `rigout`: three verifiers
+    reported real counts and the fourth reported a tick over nothing.
+
+    It is not a bug in `Outcome.silent`. `symbols` and `versions` set
+    `silence_is_signal = False` on a measurement - twelve of forty repositories document no
+    own-package import, twenty document no Python requirement - so their silence is ordinary
+    and must not alarm. That is right and is unchanged. What was wrong was rendering an
+    ordinary nothing as a pass, when the marker for nothing-to-say already exists and is the
+    one an inapplicable verifier gets.
+    """
+    # `symbols` has to be APPLICABLE and find nothing, which is the whole point: an
+    # inapplicable verifier already prints a dash and a reason. So a real package with a
+    # [project] table, and a README documenting a path and not one import.
+    repo = make_repo(
+        {
+            "pyproject.toml": '[project]\nname = "toolkit"\nversion = "0.1.0"\n',
+            "README.md": "# toolkit\n\nThe entry point is `toolkit/__init__.py`.\n",
+            "toolkit/__init__.py": "class Widget:\n    pass\n",
+        }
+    )
+    main([str(repo)])
+    out = capsys.readouterr().out
+    for line in out.splitlines():
+        if " checked" in line and line.startswith("ok "):
+            assert "0 checked" not in line, line
+    assert "nothing of this kind is documented here" in out, out

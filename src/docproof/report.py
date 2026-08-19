@@ -104,6 +104,24 @@ class Report:
             if outcome.silent:
                 lines.append(self._silence_line(outcome))
                 continue
+            # **A verifier that checked NOTHING must not be printed with a tick.** Running
+            # docproof cold on `rigout` produced `ok symbols: 0 checked`, which reads as
+            # checked-and-passed and is the exact sentence this tool exists to prevent
+            # appearing anywhere: a checker that skipped everything looking like a clean one.
+            #
+            # It is not a bug in `silent`. `symbols` and `versions` set
+            # `silence_is_signal = False` on a measurement - twelve of forty repositories
+            # document no own-package import, twenty document no Python requirement - so
+            # their silence is ordinary and must not alarm. That decision is right and is
+            # unchanged here. What was wrong was rendering an ordinary nothing as a pass.
+            # The dash is the same marker an inapplicable verifier gets, because that is what
+            # this is: nothing to say, said out loud.
+            if not outcome.checked and not outcome.skipped:
+                lines.append(
+                    f"{DASH} {outcome.verifier}: nothing of this kind is documented here, and "
+                    f"for this check that is ordinary rather than suspicious"
+                )
+                continue
             summary = f"{outcome.checked} checked"
             if outcome.skipped:
                 summary += f", {len(outcome.skipped)} skipped"
