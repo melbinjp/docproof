@@ -18,7 +18,13 @@ from .config import (
     superseded_lines,
     suppressed_lines,
 )
-from .docs import by_directory, find_docs, read, unread_documents
+from .docs import (
+    by_directory,
+    find_docs,
+    likeliest_docs_directory,
+    read,
+    unread_documents,
+)
 from .history import classify, vanished_documents
 from .project import Project, find_root
 from .report import Report
@@ -149,10 +155,21 @@ def report_coverage(project: Project, unread: list[Path]) -> None:
         f"default scope is top-level files plus doc/ and docs/"
     )
     print(f"     {where}")
-    print(
-        f"     read them too with --docs '{groups[0][0]}/**/*.md' or "
-        f'[tool.docproof] docs = ["{groups[0][0]}/**/*.md"]'
-    )
+    # The directory to widen TO is not the biggest one. Measured over sweep batch 10:
+    # the largest unread segments across twenty-three repositories are `skills/`, `tools/`,
+    # `src/`, `crates/` and `.changeset/`, and one entry in the top nine is documentation.
+    # See `likeliest_docs_directory`.
+    widen = likeliest_docs_directory(groups)
+    if widen:
+        print(
+            f"     read them too with --docs '{widen}/**/*.md' or "
+            f'[tool.docproof] docs = ["{widen}/**/*.md"]'
+        )
+    else:
+        print(
+            "     none of them is named like a documentation tree; if one is, widen with "
+            "--docs 'DIR/**/*.md' or [tool.docproof] docs = [\"DIR/**/*.md\"]"
+        )
 
 
 def report_set_aside(historical: list[str], disclaimed: dict[tuple[str, str], list[str]]) -> None:
