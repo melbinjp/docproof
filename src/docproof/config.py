@@ -47,7 +47,17 @@ SKIP_BLOCK = re.compile(r"<!--\s*docproof:\s*skip\s*(?:-->)?", re.IGNORECASE)
 # it is a statement about a past release, exactly like a changelog entry, and the only
 # reason it was not already caught is that "upgrading" was never on this list.
 _HISTORICAL_NAMES = (
-    r"changelog | changes | history | news | releases? | release[-_ ]?notes"
+    # `changelogs?` and not `changelog`, which is the same class of miss as the version
+    # suffix below: the rule already knows the word and could not see an ordinary spelling of
+    # it. `cozystack/cozystack` was reported for `docs/changelogs/v1.3.4.md` naming a
+    # controller deleted five months later, which is a changelog being a changelog.
+    #
+    # Measured over every clone on disk before taking it, because one finding is not evidence
+    # and the convention is: **four repositories keep a `changelogs/` directory** - coolify,
+    # cozystack, ruff and uv - and twelve keep one of `changelogs/`, `release-notes/`,
+    # `releasenotes/` or `.changeset/changelogs/`. The hyphenated and unseparated forms
+    # already matched; only the plural did not.
+    r"changelogs? | changes | history | news | releases? | release[-_ ]?notes"
     r" | whatsnew | what[-_]s[-_]new | upgrad(?:e|ing) | migrat(?:e|ion|ing)"
 )
 # Matches the file's own name *and* any directory on the way to it. Pillow keeps its

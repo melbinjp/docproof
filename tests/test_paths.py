@@ -883,3 +883,39 @@ def test_release_notes_are_history_even_with_the_version_in_the_name():
         "README.md",
     ):
         assert not is_historical(path), path
+
+
+def test_a_changelogs_directory_is_history_too():
+    """`changelog` has been on `_HISTORICAL_NAMES` since the fastapi measurement and could not
+    see the plural. `cozystack/cozystack` was reported for `docs/changelogs/v1.3.4.md` naming
+    `internal/controller/dashboard/customformsoverride.go`, deleted five months after that
+    release, which is a changelog being a changelog.
+
+    Measured over every clone on disk rather than taken on the one finding: **four keep a
+    `changelogs/` directory** - coolify, cozystack, ruff, uv - and twelve keep one of
+    `changelogs/`, `release-notes/`, `releasenotes/` or `.changeset/changelogs/`. Only the
+    plural was missing; the hyphenated and unseparated forms already matched.
+    """
+    from docproof.config import is_historical
+
+    for path in (
+        "docs/changelogs/v1.3.4.md",
+        "changelogs/2026.md",
+        ".changeset/changelogs/x.md",
+        "docs/release-notes/8.0.md",
+        "docs/releasenotes/2.3.2.rst",
+    ):
+        assert is_historical(path), path
+
+    for path in (
+        "docs/changelog-policy.md",
+        "docs/changelogging.md",
+        "docs/how-we-write-changelogs.md",
+        "README.md",
+    ):
+        assert not is_historical(path), path
+
+    # `src/changelogs.py` DOES match, and is left matching. The rule only ever sees
+    # documentation - `find_docs` yields `.md`, `.rst` and `.txt` - so a Python module named
+    # for changelogs never reaches this function, and the pre-existing singular had the same
+    # property. Asserting on an input the function cannot receive would test the test.
