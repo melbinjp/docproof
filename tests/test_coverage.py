@@ -149,3 +149,59 @@ def test_the_historical_list_is_capped_and_says_the_remainder(make_repo: Callabl
     # The whole block stays on one line, so its length is the thing that was wrong before.
     line = next(ln for ln in out.splitlines() if "describing the past" in ln)
     assert len(line) < 500, line[:200]
+
+
+def test_the_verdict_itself_says_how_much_it_covered(make_repo: Callable[..., Path], capsys) -> None:
+    """**The coverage note was in the header and the verdict was at the bottom.**
+
+    A run ended `Nothing contradicted. 28 claims checked` while 18 of that project's 26
+    documentation files had never been opened. The README promises the opposite in as many
+    words: *"a clean report over two files in a project with three hundred cannot be mistaken
+    for a clean report over three hundred."* Forty lines apart, it can be, and the line people
+    quote from a CI log is the last one.
+
+    Measured before it was changed: across nine real repositories docproof read **972 of 3,782**
+    documentation files, 25.7 per cent. Re-run over the whole tree, langwatch went from 1 broken
+    to 19 and cherry-studio from 23 to 111. Those runs were not clean; they were narrow.
+    """
+    files = {"README.md": README, "src/thing.py": "x = 1\n"}
+    for n in range(9):
+        files[f"elsewhere/note{n}.md"] = "# Note\n"
+    repo = make_repo(files)
+    main([str(repo)])
+    out = capsys.readouterr().out
+    assert "Nothing contradicted." in out
+    verdict = out.strip().splitlines()[-1]
+    assert "9 were never read" in verdict
+    assert "10% of the documentation" in verdict
+
+
+def test_a_broken_verdict_carries_the_coverage_too(make_repo: Callable[..., Path], capsys) -> None:
+    """ "19 broken" over a fifth of the tree is as easy to misread as "nothing contradicted"
+    over a fifth, so the sentence is attached to both verdicts rather than only the clean one."""
+    files = {"src/thing.py": "x = 1\n"}
+    for n in range(4):
+        files[f"elsewhere/note{n}.md"] = "# Note\n"
+    # Real drift, not an illustration: the README claims the path in the SAME commit that
+    # still has it, and a later commit removes it. The fixture's own docstring is emphatic
+    # that this distinction is the whole rule, and my first attempt at this test ignored it
+    # and produced a clean run I then asserted was broken.
+    repo = make_repo(
+        files,
+        documented_before={"README.md": "# A project\n\nSee `src/gone.py` for the details.\n"},
+        deleted={"src/gone.py": "x = 1\n"},
+    )
+    main([str(repo)])
+    out = capsys.readouterr().out
+    assert " broken, " in out
+    assert "4 were never read" in out.strip().splitlines()[-1]
+
+
+def test_full_coverage_adds_no_sentence(make_repo: Callable[..., Path], capsys) -> None:
+    """A project whose documentation was entirely read must not gain a line telling it so.
+    The point is to mark a narrow verdict, and a reassurance printed on every clean run is the
+    kind of noise that teaches a reader to skip the whole block."""
+    repo = make_repo({"README.md": README, "src/thing.py": "x = 1\n"})
+    main([str(repo)])
+    out = capsys.readouterr().out
+    assert "were never read" not in out
