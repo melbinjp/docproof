@@ -250,6 +250,33 @@ class Git:
             index.setdefault(path.rsplit("/", 1)[-1], []).append(path)
         return {name: tuple(sorted(paths)) for name, paths in index.items()}
 
+    def split_siblings(self, path: str, commit: str) -> tuple[str, ...]:
+        """Same-named files that this commit ADDED alongside `path`.
+
+        A rename that SPLIT one file into two leaves `moved_to` naming whichever destination
+        git paired the content with, and that is not always the one the sentence meant.
+        `sendgrid/sendgrid-python` split `test/test_sendgrid.py` into `test/unit/` and
+        `test/integ/` in one commit; git pairs the content with integ, and the sentence around
+        the link asks the reader to add **unit** tests. Naming one destination with no sign a
+        choice existed sends them to the wrong file while looking like a correct report.
+
+        **Restricted to what the SAME commit added, which is what makes it a split rather than
+        a coincidence.** Every repository has many files called `README.md` and `__init__.py`,
+        and a rule keyed on the basename alone would append a caveat to most renames of a
+        common name - noise on exactly the findings that are otherwise clearest.
+        """
+        code, out, _ = _run(
+            ["git", "show", "--name-status", "--diff-filter=A", "--format=", commit], self.root
+        )
+        if code != 0:
+            return ()
+        name = path.rsplit("/", 1)[-1]
+        # TAB via chr(9): git separates status from path with one, and a literal tab
+        # byte in source is what the control-byte guard exists to reject.
+        sep = chr(9)
+        added = (line.split(sep, 1)[1].strip() for line in out.splitlines() if sep in line)
+        return tuple(sorted(p for p in added if p != path and p.rsplit("/", 1)[-1] == name))
+
     def _size_at(self, revision: str, path: str) -> int | None:
         code, out, _ = _run(["git", "cat-file", "-s", f"{revision}:{path}"], self.root)
         if code != 0:

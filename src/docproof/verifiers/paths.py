@@ -740,10 +740,28 @@ class DocumentedPaths(Verifier):
         # investigate into one they can act on. See `Git.moved_to`.
         moved = git.moved_to(subject, commit)
         if moved:
+            # **A SPLIT HAS TWO ANSWERS AND ONLY ONE OF THEM IS PAIRED.** Where the
+            # destination has same-named siblings, say so instead of asserting the pairing.
+            # sendgrid split `test/test_sendgrid.py` into `test/unit/` and `test/integ/`;
+            # git pairs the content with integ, and the sentence around the link asks for
+            # UNIT tests. Following the report there is worse advice than the dead link it
+            # replaces, and it looks exactly like a correct report while doing it.
+            #
+            # Only what the SAME commit added counts, or every rename of a README.md would
+            # carry a caveat about the other forty.
+            siblings = git.split_siblings(moved, commit)
+            also = ""
+            if siblings:
+                named = ", ".join(f"`{s}`" for s in siblings[:3])
+                more = f" and {len(siblings) - 3} more" if len(siblings) > 3 else ""
+                also = (
+                    f" — but `{moved.rsplit('/', 1)[-1]}` also exists at {named}{more}, "
+                    f"so read the sentence before taking the paired one"
+                )
             return self.broken(
                 claim,
                 f'moved to `{moved}` in {commit} ({date}, "{subject_line[:60]}"), '
-                f"and the documentation still points at the old path",
+                f"and the documentation still points at the old path{also}",
             )
 
         # And when the deleting commit is only sweeping up a re-export the split left
