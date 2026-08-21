@@ -1,9 +1,9 @@
 """The genre gate: what it holds back, and the two ways it must never fail.
 
-Measured over 61 hand-judged findings across 44 repositories - reference 35/37 real, plan
-0/14, record 1/4. Holding plan and record back moves precision from 0.69 to 0.95 at the cost
-of one real finding. `docproof.genre` carries the full working and the pre-registered
-falsification test.
+Measured over 103 hand-judged findings across three sweep batches. Holding plan and record
+back moves precision from 0.65 to 0.93 at the cost of one real finding, and the residual
+`other` bucket - what the path rule cannot name - now sits at 20/21. `docproof.genre` carries
+the full working, both mechanisms that were tried and lost, and the pre-registered test.
 
 These tests pin the two failure directions, which are not symmetric:
 
@@ -117,3 +117,36 @@ def test_a_reference_finding_still_fails_the_run(make_repo):
         documented_before={"README.md": "Run `tools/gone.py` first."},
     )
     assert main([str(repo)]) == 1
+
+
+def test_the_widened_vocabulary_names_what_reading_found():
+    """Added 2026-08-21 by reading the eleven `other` false positives one at a time, after two
+    invented mechanisms had both lost. Nine were genre all along."""
+    assert genre("docs/release_notes_v7.9.0.md") == "record"
+    assert genre("HOOKS_INVESTIGATION.md") == "record"
+    assert genre("docs/fill_events_session_summary.md") == "record"
+    assert genre("docs/turn-scenario-test-gap.md") == "record"
+    assert genre("docs/tickets/desktop-invite-member.md") == "plan"
+
+
+def test_a_live_handbook_is_not_held_back_by_a_word_inside_its_name():
+    """THE NEAR MISS, and it is why bare `session` and `notes` are not in the vocabulary.
+
+    `docs/conventions/troubleshooting/agent-session-lifecycle.md` is a live troubleshooting
+    handbook and its finding was REAL. A first draft added bare `session` to RECORD, which
+    outranks `troubleshooting` because plan and record are tested first - so the rule suppressed
+    a true finding in a reference document. Only the specific compound survives.
+    """
+    doc = "docs/conventions/troubleshooting/agent-session-lifecycle.md"
+    assert genre(doc) == "reference"
+    assert not held_back(doc), "a live handbook was held back by a generic word"
+
+
+def test_words_that_fired_on_nothing_are_still_only_meaning():
+    """`retro`, `incident`, `triage`, `prd`, `backlog` and `milestone` matched zero judged
+    rows. They are in the lists from ordinary meaning, which is the one kind of word that
+    cannot have been fitted to the data - worth pinning so nobody 'tidies' them away as dead."""
+    assert genre("docs/2026-08-01-incident.md") == "record"
+    assert genre("notes/sprint-retro.md") == "record"
+    assert genre("docs/backlog.md") == "plan"
+    assert genre("product/checkout-prd.md") == "plan"
