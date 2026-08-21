@@ -6,9 +6,11 @@ import argparse
 import contextlib
 import sys
 from collections.abc import Sequence
+from dataclasses import replace
 from pathlib import Path
 
 from . import __version__
+from . import genre as document_genre
 from .config import (
     Config,
     declares_removed,
@@ -26,6 +28,7 @@ from .docs import (
     unread_documents,
 )
 from .history import classify, vanished_documents
+from .model import Verdict
 from .project import Project, find_root
 from .report import Report
 from .vcs import Git
@@ -82,6 +85,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--exit-zero",
         action="store_true",
         help="report contradictions without failing the run; a check that stopped checking still fails",
+    )
+    parser.add_argument(
+        "--all-genres",
+        action="store_true",
+        help="also judge planning and record documents; they measured 0/14 and 1/4 real",
     )
     parser.add_argument("--version", action="version", version=f"docproof {__version__}")
     return parser
@@ -313,6 +321,49 @@ def main(argv: Sequence[str] | None = None) -> int:
             # extraction broke", and only history can say which — see `history`.
             outcome.silence = classify(project, config, verifier, documents)
         outcomes.append(outcome)
+
+    # THE GENRE GATE. A plan is a statement about a decision at a moment; a reference is a
+    # statement about the system now, and only the second can be contradicted by the tree.
+    # Measured over 61 hand-judged findings: reference 35/37 real, plan 0/14, record 1/4.
+    # Holding the two back moves precision from 0.69 to 0.95 and costs one real finding.
+    # Full working and the pre-registered falsification test live in `genre.py`.
+    #
+    # NOTHING IS DELETED. The findings are still found and still counted, and the line below
+    # names every document held back, because this file already knows the rule: over-firing
+    # should be visible as a shrinking count, not as a report that quietly got cleaner. The
+    # same applies to under-firing, which is what a gate is.
+    withheld: list[str] = []
+    if not args.all_genres:
+        for outcome in outcomes:
+            for index, finding in enumerate(outcome.findings):
+                if finding.verdict is not Verdict.BROKEN:
+                    continue
+                relative = document_genre.relative_doc(finding.claim.doc, project.root)
+                if not document_genre.held_back(relative):
+                    continue
+                kind = document_genre.genre(relative)
+                withheld.append(f"{finding.claim.where(project.root)} ({kind})")
+                # SKIPPED, NOT DELETED, and the model already had the right word for this:
+                # "the claim could not be checked reliably, and guessing was refused. Every
+                # skip carries a reason, and the reasons are reported rather than hidden."
+                # That is exactly what a plan document is - a statement about a decision at a
+                # moment, which the tree cannot contradict.
+                #
+                # Removing the finding outright was the first attempt and it was WRONG in a
+                # way the suite caught: an outcome with no findings left is `silent`, silence
+                # with no classification is alarming, and the run then failed claiming the
+                # check had gone blind. A gate must not be able to make a verifier that
+                # looked and found things look like one that could not see.
+                outcome.findings[index] = replace(
+                    finding,
+                    verdict=Verdict.SKIPPED,
+                    detail=(
+                        f"{kind}-genre document, not judged: findings in planning and "
+                        f"record documents measured 1 real in 18. --all-genres judges "
+                        f"them. Original finding: {finding.detail}"
+                    ),
+                )
+
     report = Report(project=project, outcomes=outcomes)
     print(f"docproof {__version__} — {project.root.name}, {len(documents)} document(s)")
     unread = unread_documents(project.root, in_scope, tracked)
@@ -329,6 +380,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     ]
     if superseded:
         print(f"   labelled superseded by the prose above, not judged: {', '.join(sorted(superseded))}")
+    if withheld:
+        print(
+            f"   held back as planning or record documents, where findings measured "
+            f"1 real in 18: {', '.join(sorted(withheld))}"
+        )
+        print("   --all-genres judges them anyway.")
     print()
     print(
         report.render(
