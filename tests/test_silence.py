@@ -79,7 +79,7 @@ def test_rigout_the_flag_survives_in_prose_but_extraction_lost_it(
 ) -> None:
     """The rigout case, and the one alarm that was real: the documentation still talks
     about the thing, but a rewrite took it out of the shape extraction matches. The
-    check went quiet while the claim stood — exactly what must fail the run."""
+    check went quiet while the claim stood - exactly what must fail the run."""
     repo = make_repo(
         {"pyproject.toml": PYPROJECT, "README.md": "Pass --dry-run to preview changes.\n"},
         deleted={"README.md": "```\n$ prog --dry-run\n```\n"},
@@ -111,7 +111,7 @@ def test_litecli_a_checkout_broken_since_clone_day_is_caught_first(
     make_repo: Callable[..., Path],
 ) -> None:
     """The first time this classifier ran over a real corpus it found a clone that had
-    been half-empty since clone day — a tracked filename NTFS refuses. When HEAD's
+    been half-empty since clone day - a tracked filename NTFS refuses. When HEAD's
     blobs are loud and the files on disk are silent, no history reading matters: the
     checkout itself is broken."""
     repo = make_repo({"README.md": "The entry point is `src/app.py`.\n", "src/app.py": ""})
@@ -127,7 +127,7 @@ def test_litecli_a_checkout_with_no_documents_at_all_still_alarms(
     make_repo: Callable[..., Path],
 ) -> None:
     """The real litecli clone was worse than a mismatched README: the failed checkout
-    left no documents on disk at all, so the run ended at "nothing to prove" — exit 0,
+    left no documents on disk at all, so the run ended at "nothing to prove" - exit 0,
     forever. An empty run must ask HEAD before it calls the emptiness fine."""
     repo = make_repo({"README.md": "The entry point is `src/app.py`.\n", "src/app.py": ""})
     (repo / "README.md").unlink()
@@ -163,7 +163,7 @@ def test_a_shallow_clone_cannot_be_judged_and_names_the_fix(
 
 def test_a_verifier_that_cannot_replay_extraction_keeps_the_old_alarm() -> None:
     """Until a verifier separates extraction from judging, its silence cannot be
-    classified — and the conservative reading is the strict one it always had."""
+    classified - and the conservative reading is the strict one it always had."""
 
     class Monolithic:
         name = "monolith"
@@ -201,7 +201,7 @@ def test_an_alarming_silence_still_gates() -> None:
 
 
 def test_an_unclassified_silence_keeps_the_old_strict_behaviour() -> None:
-    """An Outcome built without asking history — older callers, hand-rolled tests —
+    """An Outcome built without asking history - older callers, hand-rolled tests -
     must not quietly acquire a pass."""
     report = Report(project=Project(root=Path(".")), outcomes=[Outcome(verifier="paths")])
     assert report.exit_code == 1

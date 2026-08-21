@@ -2,8 +2,8 @@
 
 Every escape-hatch test here is named for the real project that produced it during the
 forty-repository probe. The first pass of that probe reported PIL, attrs, rich, scrapy,
-datasette, pydantic and pygments — some of the most widely used packages in the
-ecosystem — as broken. All of them were wrong, for three distinct reasons, and each
+datasette, pydantic and pygments - some of the most widely used packages in the
+ecosystem - as broken. All of them were wrong, for three distinct reasons, and each
 reason is its own test rather than folded into one "it is complicated" fixture.
 """
 
@@ -84,7 +84,7 @@ def test_multiple_names_in_one_import_are_judged_separately(make_repo: Callable[
 
 def test_a_try_except_import_still_counts_as_bound(make_repo: Callable[..., Path]) -> None:
     """A name bound in only one branch of a version- or platform-guarded import is still
-    a real name once that branch runs — a common shape this must not miss."""
+    a real name once that branch runs - a common shape this must not miss."""
     module_src = "try:\n    from ujson import loads\nexcept ImportError:\n    from json import loads\n"
     repo = make_repo(
         toolkit("```python\nfrom toolkit import loads\n```\n", {"toolkit/__init__.py": module_src})
@@ -98,7 +98,7 @@ def test_a_try_except_import_still_counts_as_bound(make_repo: Callable[..., Path
 def test_the_pil_image_case_implicit_submodule_import_holds(make_repo: Callable[..., Path]) -> None:
     """`from PIL import Image` works because `PIL/Image.py` exists, whatever
     `PIL/__init__.py` does or does not import. The first probe pass reported this shape
-    as broken on PIL, attrs, rich, scrapy and datasette — five widely used projects,
+    as broken on PIL, attrs, rich, scrapy and datasette - five widely used projects,
     five wrong findings, all one bug."""
     repo = make_repo(
         toolkit(
@@ -128,7 +128,7 @@ def test_a_wildcard_import_makes_absence_unprovable(make_repo: Callable[..., Pat
 
 def test_pydantic_style_pep_562_getattr_makes_absence_unprovable(make_repo: Callable[..., Path]) -> None:
     """pydantic's public API answers `from pydantic import BaseModel` via a module-level
-    `__getattr__` rather than a static binding — a name this cannot see without running
+    `__getattr__` rather than a static binding - a name this cannot see without running
     the module, not a broken claim."""
     repo = make_repo(
         toolkit(
@@ -175,7 +175,7 @@ def test_a_relative_import_in_docs_names_no_dotted_path(make_repo: Callable[...,
 
 def test_an_unlabelled_fence_is_not_guessed_at(make_repo: Callable[..., Path]) -> None:
     """An unlabelled fence is exactly as likely to be JSON or a shell transcript as
-    Python in real READMEs — dropped on purpose rather than guessed at."""
+    Python in real READMEs - dropped on purpose rather than guessed at."""
     repo = make_repo(
         toolkit(
             "```\nfrom toolkit import Gadget\n```\n",
@@ -220,7 +220,7 @@ def test_not_applicable_without_an_importable_package(tmp_path: Path) -> None:
 
 def test_saying_nothing_is_not_a_failure_here(make_repo: Callable[..., Path]) -> None:
     """Twelve of forty public repositories document no own-package import at all, and
-    none of them is broken — the same shape `versions` already established."""
+    none of them is broken - the same shape `versions` already established."""
     repo = make_repo(
         toolkit(
             "A README with nothing to say about imports.\n",
@@ -256,7 +256,7 @@ def test_the_temporal_case_a_compiled_module_is_not_missing(make_repo: Callable[
 
     `temporalio/sdk-python`'s README imports `temporalio.bridge.temporal_sdk_bridge`, which
     maturin compiles. Reading only the source tree, this reported the Temporal SDK's own
-    README as contradicting its code — a confident sentence about a module that exists the
+    README as contradicting its code - a confident sentence about a module that exists the
     moment anyone builds the project.
 
     The declaration is right there in `pyproject.toml`, in the build backend's own table,

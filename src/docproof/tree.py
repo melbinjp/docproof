@@ -12,7 +12,7 @@ Every leaf there is a claim, and none of them can be checked as written: `server
 alone is meaningless, and looking for it at the repository root finds nothing. The claim
 is `src/rigout/server.py`, and recovering it means reading the indentation.
 
-These diagrams rot faster than prose does — they are copied once, at the point when
+These diagrams rot faster than prose does - they are copied once, at the point when
 somebody was proud of the layout, and then files move. They are also the first thing a
 new reader uses to orient, so a wrong one costs more than its size suggests.
 
@@ -59,7 +59,7 @@ class Entry:
 
     citerag's `docs/README.md` draws its own directory and then, at the same depth, a
     second block rooted at `../` listing the repository's top-level files. Those entries
-    are real and their paths are real — but they are relative to somewhere above the
+    are real and their paths are real - but they are relative to somewhere above the
     diagram's own root, and nothing in the drawing says where that is. Reported rather
     than dropped, because a silently discarded claim and a checked one look identical
     from the outside.
@@ -78,7 +78,7 @@ def split_line(line: str) -> tuple[int, str | None, str]:
     spaces, not `│   `, so a bar count reads the deepest branch of every subtree as
     shallower than its siblings. The column where the entry begins is the only thing
     every style agrees on. Turning columns into levels needs a stride, and the stride is
-    a property of the diagram rather than of the line — see `parse`.
+    a property of the diagram rather than of the line - see `parse`.
     """
     index = 0
     while index < len(line):
@@ -216,8 +216,8 @@ def parse(text: str, first_line: int) -> list[Entry]:
 
     # Pass two: a leading `.` or `name/` with everything else below it is the diagram's
     # own root. It names the repository rather than a directory inside it, so it is
-    # dropped and the rest becomes zero-based. A diagram with no root line — a flat list
-    # of top-level entries — is left alone.
+    # dropped and the rest becomes zero-based. A diagram with no root line - a flat list
+    # of top-level entries - is left alone.
     head_depth, head_name, head_is_dir, _ = read_lines[0]
     if (
         head_depth == 0
@@ -249,7 +249,7 @@ def parse(text: str, first_line: int) -> list[Entry]:
             # rooted at `../`, and every entry under that second root inherited `docs/`.
             # `CONTRIBUTING.md` at the repository root was reported as
             # `docs/CONTRIBUTING.md`. It skipped rather than failed only because that
-            # path had never existed — in a repository that had once had it and deleted
+            # path had never existed - in a repository that had once had it and deleted
             # it, the same bug manufactures a BROKEN out of a correct document.
             above = depth
             continue

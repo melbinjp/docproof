@@ -116,7 +116,7 @@ def test_a_second_root_of_dotdot_does_not_inherit_the_first() -> None:
     entry *before* truncating the stack meant every line under that second root inherited
     `docs/`, so `CONTRIBUTING.md` at the repository root was read as `docs/CONTRIBUTING.md`.
 
-    It only ever produced skips, because that path had never existed — in a repository
+    It only ever produced skips, because that path had never existed - in a repository
     that had once had it and deleted it, the same bug turns a correct document into a
     contradiction with a commit hash attached to it.
     """

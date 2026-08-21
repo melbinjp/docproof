@@ -37,7 +37,7 @@ def test_a_tracked_path_holds(make_repo: Callable[..., Path]):
 def test_a_path_the_project_deleted_is_broken(make_repo: Callable[..., Path]):
     """The receipt is the commit that removed it.
 
-    The README is committed *before* the removal on purpose: that is what real drift is —
+    The README is committed *before* the removal on purpose: that is what real drift is -
     a sentence that was true when written and was broken by a later commit. Written the
     other way round this test passed for years while asserting nothing, because both
     fixture commits landed in the same second and the ordering check could not fire.
@@ -59,7 +59,7 @@ def test_a_shallow_clone_says_so_rather_than_claiming_the_path_never_existed(
 
     Without history, `git.deleted` returns None for every path, so a shallow checkout
     falls straight through to the "this repository has never had this path" skip. The
-    verdict is the same either way — nothing breaks, no alarm fires — and the tool tells
+    verdict is the same either way - nothing breaks, no alarm fires - and the tool tells
     the reader something false about their project: it never had the file, when in truth
     the clone was truncated. Found by disabling each guard in turn and seeing which ones
     no test noticed; this was the only one.
@@ -79,7 +79,7 @@ def test_pytest_a_path_named_only_after_it_was_deleted_is_an_example(
     make_repo: Callable[..., Path],
 ):
     """pytest's docs illustrate `--import-mode=append` with a `testing/__init__.py` tree.
-    pytest really did delete a file of that name — in 2010, eleven years before the
+    pytest really did delete a file of that name - in 2010, eleven years before the
     sentence was written. Whoever wrote it knew no such file was here, so it is an
     example, and calling it drift puts a wrong patch in front of a maintainer."""
     repo = make_repo(
@@ -98,7 +98,7 @@ def test_click_a_claim_reworded_after_the_deletion_is_still_drift(
     CI workflow deleted on 2026-04-03; the line was rewrapped on 2026-04-10, so `git
     blame` dated the claim a week *after* the deletion and read a real finding as an
     example. What matters is when the document first said it, not when the line was last
-    touched — here the claim predates the removal and survives a later edit."""
+    touched - here the claim predates the removal and survives a later edit."""
     repo = make_repo(
         {
             "README.md": "The entry point, reworded later, is still `src/pkg/main.py`.\n",
@@ -230,7 +230,7 @@ def test_output_in_a_transcript_is_not_a_claim(make_repo: Callable[..., Path]):
 
 
 def test_a_path_the_reader_is_told_to_create_is_not_a_claim(make_repo: Callable[..., Path]):
-    """falcon's ASGI tutorial says `$ touch tests/__init__.py` — an instruction to the
+    """falcon's ASGI tutorial says `$ touch tests/__init__.py` - an instruction to the
     reader to make that file in their own project. falcon happens to have deleted its own
     tests/__init__.py in 2019, so the deleted-path receipt fires and the tutorial line
     reads as falcon's drift. A `touch`/`mkdir` operand is created, never asserted to
@@ -254,7 +254,7 @@ def test_a_github_slug_in_a_link_is_not_read_as_a_path(make_repo: Callable[..., 
     That is noise reduction, not the safety property: a bare `owner/repo` in backticks
     with no link around it is genuinely indistinguishable from a directory, and this
     does not pretend otherwise. It stays harmless because a repository that never had
-    such a directory cannot have deleted one — the second assertion is the real
+    such a directory cannot have deleted one - the second assertion is the real
     guarantee, and it does not depend on recognising the shape at all.
     """
     repo = make_repo(
@@ -289,7 +289,7 @@ def test_a_verifier_that_explained_itself_is_not_silent(make_repo: Callable[...,
 
 
 def test_a_bare_filename_is_not_judged_even_when_it_was_deleted(make_repo: Callable[..., Path]):
-    """flask's quickstart says "do not call your file `flask.py`" — advice about the
+    """flask's quickstart says "do not call your file `flask.py`" - advice about the
     reader's filename. Flask really did delete its own `flask.py` in 2010, so history
     agreed and was still answering the wrong question."""
     repo = make_repo(
@@ -303,8 +303,8 @@ def test_a_bare_filename_is_not_judged_even_when_it_was_deleted(make_repo: Calla
 
 def test_a_tombstone_page_describes_the_past():
     """bandit keeps doc pages for plugins B109/B111 that open "This plugin has been
-    removed." — deliberate tombstones (their PR #864 added the sentence), kept so old
-    links resolve — and a stale example path inside one was reported as drift. pdm's
+    removed." - deliberate tombstones (their PR #864 added the sentence), kept so old
+    links resolve - and a stale example path inside one was reported as drift. pdm's
     `docs/dev/benchmark.md` ("This page has been removed, please visit …") is the same
     class. Deprecated is not removed: structlog's thread-local page documents a
     deprecated module that still exists, still promises, and still deserves judgment.
@@ -452,7 +452,7 @@ body
 
 
 def test_a_changelog_describes_the_past(make_repo: Callable[..., Path]):
-    """fastapi's release-notes.md alone produced 162 findings — more than every other
+    """fastapi's release-notes.md alone produced 162 findings - more than every other
     document in twenty repositories combined. "0.68 moved `docs_src/websockets`" is
     correct and always will be."""
     from docproof.config import is_historical
@@ -475,7 +475,7 @@ def test_a_dated_document_describes_the_day_it_names(make_repo: Callable[..., Pa
     summary to track a tree it was never describing.
 
     41 of 92 reported path findings across the corpus sit in a dated path, over 3
-    repositories and 12 documents — the largest class left once `adr/` and `prd/` are
+    repositories and 12 documents - the largest class left once `adr/` and `prd/` are
     handled.
 
     A full date only. `docs/2026-roadmap.md` is live and must keep being judged: a date is
@@ -498,13 +498,13 @@ def test_a_dated_document_describes_the_day_it_names(make_repo: Callable[..., Pa
 
 def test_an_archive_directory_describes_the_past(make_repo: Callable[..., Path]):
     """`coollabsio/coolify` documents `scripts/coold-vm.sh` inside `docs/v5/archive/dev/`,
-    and the commit that deleted the script is named *"archive V5 implementation"* — the same
+    and the commit that deleted the script is named *"archive V5 implementation"* - the same
     change that made the archive. Judging it reports a project for correctly describing what
     it archived.
 
     Narrow on purpose. The segment must BE `archive` or `archived`: `src/archiver/` is a
     package that archives things and its docs are live, and `docs/architecture.md` merely
-    starts with the same letters. `deprecated/` is deliberately absent — one document in 134
+    starts with the same letters. `deprecated/` is deliberately absent - one document in 134
     repositories is not evidence, and `TOMBSTONE` already holds that deprecated is not
     removed.
     """
@@ -548,7 +548,7 @@ def test_a_documented_directory_git_never_tracked_is_not_drift(make_repo: Callab
     """Git stores files, not directories, so it cannot tell empty from absent.
 
     **This used to be the posthog case and the fixture could not express it.** It built one
-    file and deleted it, which is not what `.sampo/changesets/` does — that directory is
+    file and deleted it, which is not what `.sampo/changesets/` does - that directory is
     filled and consumed on every release, and a fixture that commits once and removes once
     has no lifecycle in it at all. The real shape now lives in
     `tests/test_emptied_directory.py`, which builds the refill, and it was checked against
@@ -593,7 +593,7 @@ def test_a_directory_whose_whole_tree_went_is_still_broken(make_repo: Callable[.
 
     The README goes in `documented_before` so it exists on the far side of the removal.
     Written as an ordinary file it lands in the last commit and `claim_introduced_after`
-    calls it an example — a skip this rule had nothing to do with, and a test that would
+    calls it an example - a skip this rule had nothing to do with, and a test that would
     have passed while asserting nothing.
     """
     repo = make_repo(
@@ -608,7 +608,7 @@ def test_a_directory_whose_whole_tree_went_is_still_broken(make_repo: Callable[.
 def test_the_hypothesis_case_a_path_the_reader_is_told_to_create(make_repo: Callable[..., Path]):
     """`CREATES` already knew this shape for shell transcripts; prose was uncovered.
 
-    hypothesis's `CONTRIBUTING.rst:12` says *"Create ``hypothesis/RELEASE.rst``"* — a
+    hypothesis's `CONTRIBUTING.rst:12` says *"Create ``hypothesis/RELEASE.rst``"* - a
     changelog fragment every contributor creates and every release consumes, deleted in
     `6384deef4` while bumping to 6.165.10. The deletion is the file's lifecycle. pipx and
     twine document the same towncrier workflow and would have gone the same way.
@@ -638,7 +638,7 @@ def test_the_bat_case_a_path_that_names_its_own_revision(make_repo: Callable[...
     """`git show v0.6.0:src/main.rs | bat -l rs` is correct forever.
 
     sharkdp/bat's README shows how to read an old file with highlighting. `src/main.rs`
-    moved into `src/bin/` in 2019, so it is absent at HEAD — and the command still works,
+    moved into `src/bin/` in 2019, so it is absent at HEAD - and the command still works,
     because it reads from the tag named in the same breath as the path.
 
     This test would have failed for the whole life of the first fix: the guard was written

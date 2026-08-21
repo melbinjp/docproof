@@ -1,7 +1,7 @@
 """The artifact side: what the project actually is, read from the project itself.
 
 Everything here is derived at read time. Nothing about a target project is configured,
-guessed from its name, or carried in a table in this package — because the moment a
+guessed from its name, or carried in a table in this package - because the moment a
 checker holds its own copy of the truth, it starts checking the copy.
 
 Nothing in this module imports the project under test. A linter that imports arbitrary
@@ -105,7 +105,7 @@ class Project:
         form looks deleted, so the tool reported a correct sentence as drift.
 
         Measured over the 134-repository corpus: **38 of them (28%) have two or more nested
-        package roots** — sentry-java 94, posthog-python 38, zeroclaw 31, ripgrep 11,
+        package roots** - sentry-java 94, posthog-python 38, zeroclaw 31, ripgrep 11,
         prettier 5. Any project with `packages/`, `crates/`, `apps/` or `examples/` is in this
         shape, so a checker that cannot read a package-relative path is wrong on more than a
         quarter of what it is pointed at.

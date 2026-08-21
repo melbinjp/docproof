@@ -1,4 +1,4 @@
-"""`docproof [path]` — check a project's documentation against the project."""
+"""`docproof [path]` - check a project's documentation against the project."""
 
 from __future__ import annotations
 
@@ -296,7 +296,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         # Documentation WAS found and all of it was set aside. Saying "no documentation
         # found" here would be the same lie in a friendlier voice, so the reasons are
         # printed on this path exactly as they are on the ordinary one.
-        print(f"docproof {__version__} — {project.root.name}, every document set aside")
+        print(f"docproof {__version__} - {project.root.name}, every document set aside")
         report_coverage(project, unread_documents(project.root, in_scope, tracked))
         report_set_aside(historical, disclaimed)
         print()
@@ -318,7 +318,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         outcome = verifier.run(project, documents)
         if outcome.silent:
             # Silence alone is ambiguous between "never made such claims" and "the
-            # extraction broke", and only history can say which — see `history`.
+            # extraction broke", and only history can say which - see `history`.
             outcome.silence = classify(project, config, verifier, documents)
         outcomes.append(outcome)
 
@@ -365,13 +365,13 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
 
     report = Report(project=project, outcomes=outcomes)
-    print(f"docproof {__version__} — {project.root.name}, {len(documents)} document(s)")
+    print(f"docproof {__version__} - {project.root.name}, {len(documents)} document(s)")
     unread = unread_documents(project.root, in_scope, tracked)
     docs_directory = report_coverage(project, unread)
     report_set_aside(historical, disclaimed)
     # Same principle, one level down, and it applies harder: nobody asked for this rule.
     # A `Before:` label is the tool deciding by itself that a block is not a claim, so the
-    # place it fired is named — over-firing should be visible as a shrinking count, not as
+    # place it fired is named - over-firing should be visible as a shrinking count, not as
     # a report that quietly got cleaner.
     superseded = [
         f"{d.path.relative_to(project.root).as_posix()}:{min(d.superseded)}"

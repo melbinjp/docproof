@@ -1,7 +1,7 @@
 """Letting a project say which documents are not promises.
 
 Some documents are deliberately not descriptions of the current state. A build guide
-written in an aspirational voice — *what this becomes* — sitting beside a README scoped to
+written in an aspirational voice - *what this becomes* - sitting beside a README scoped to
 what is true today is a common and perfectly sensible arrangement, and the project usually
 says so in as many words. A checker that reports drift in the aspirational one is not
 finding a bug; it is arguing with a decision the author already made and wrote down.
@@ -13,7 +13,7 @@ somebody has to remember to pass:
     [tool.docproof]
     exclude = ["agent.md", "docs/rfc/*.md"]
 
-    <!-- docproof: skip-file — this describes the design, not the tree -->
+    <!-- docproof: skip-file - this describes the design, not the tree -->
 
 The marker is deliberately the more visible of the two. A reader who finds a wrong path
 in a document can see, in the document, that nobody is checking it.
@@ -32,7 +32,7 @@ SKIP_BLOCK = re.compile(r"<!--\s*docproof:\s*skip\s*(?:-->)?", re.IGNORECASE)
 
 # Documents whose job is to describe the past. A changelog saying "0.68 moved
 # `docs_src/websockets`" is *correct* and always will be, however many times that
-# directory moves afterwards — the sentence is about a release, not about the tree.
+# directory moves afterwards - the sentence is about a release, not about the tree.
 #
 # This is the largest single source of wrong findings there is: fastapi's
 # `release-notes.md` alone produced 162 of them, more than every other document in
@@ -43,7 +43,7 @@ SKIP_BLOCK = re.compile(r"<!--\s*docproof:\s*skip\s*(?:-->)?", re.IGNORECASE)
 # `upgrading` and `migrat(e|ion|ing)` joined the list after probing the `symbols`
 # verifier: marshmallow's `docs/upgrading.rst` shows `from marshmallow import
 # MarshallingError`, a class removed in 3.0, as an illustration of the *old* API a
-# reader is migrating away from. The sentence was true when written and stays true —
+# reader is migrating away from. The sentence was true when written and stays true -
 # it is a statement about a past release, exactly like a changelog entry, and the only
 # reason it was not already caught is that "upgrading" was never on this list.
 _HISTORICAL_NAMES = (
@@ -70,12 +70,12 @@ _HISTORICAL_NAMES = (
 #
 # `coollabsio/coolify` documents `scripts/coold-vm.sh` inside `docs/v5/archive/dev/`, and the
 # commit that deleted the script is named *"archive V5 implementation and remove runtime
-# inte[gration]"* — the same change that created the archive. Judging it reports a project for
+# inte[gration]"* - the same change that created the archive. Judging it reports a project for
 # correctly describing what it archived.
 #
 # Measured across 134 repositories: 464 documents under `archived/` (gsd-core) and 129 under
 # `archive/` (coolify). Two repositories is a thin base for a rule, and it is taken anyway
-# because the semantics do not depend on the count — a directory called `archive` means what
+# because the semantics do not depend on the count - a directory called `archive` means what
 # the word means, and a project keeping live documentation there would be perverse.
 #
 # `deprecated/`, `legacy/` and `old/` are NOT included. `deprecated/` matched exactly one
@@ -183,15 +183,15 @@ def is_historical(relative_path: str) -> bool:
 
 
 # A page can also say it in prose rather than in its name. bandit keeps doc pages for
-# plugins B109 and B111 that open with "This plugin has been removed." — deliberate
-# tombstones, kept so old links keep resolving — and pdm's `docs/dev/benchmark.md` opens
+# plugins B109 and B111 that open with "This plugin has been removed." - deliberate
+# tombstones, kept so old links keep resolving - and pdm's `docs/dev/benchmark.md` opens
 # "This page has been removed, please visit …". A stale example path inside such a page
 # is not drift; the page has already told its reader it describes something that no
 # longer exists.
 #
 # Narrow on purpose, from reading every candidate in the forty-repo corpus (a broad net
 # matched eleven lines; exactly two were tombstones). The subject must be
-# self-referential — "This page/plugin/module …" — and the verb must be *removed*.
+# self-referential - "This page/plugin/module …" - and the verb must be *removed*.
 # Deprecated is not removed: structlog's thread-local page documents a deprecated module
 # that still exists, still makes promises, and still deserves judgment. A removal note
 # about something else ("The ``scrapy deploy`` command has been removed in 1.0") is a
@@ -202,12 +202,12 @@ TOMBSTONE = re.compile(r"(?i)^[\s>*_-]{0,8}This\s+\w+\s+(?:has been|was)\s+remov
 # LABEL at the top of the document rather than a claim about a subject.
 #
 # `wekan/docs/Databases/Migrations/CODE_CHANGES_SUMMARY.md` opens
-# *"> **OBSOLETE — historical record.** This documents the old cron-driven migration system
+# *"> **OBSOLETE - historical record.** This documents the old cron-driven migration system
 # … since **removed**"*. It then documents `server/cronMigrationManager.js`, deleted in
 # `a440d44ea`. The page could not be clearer about what it is, and this reported it as drift.
 #
 # Measured with the same discipline as `TOMBSTONE`, over 134 repositories: **seven documents,
-# all seven genuine** — flask's `reqcontext.rst` and `patterns/jquery.rst` ("Obsolete, see …
+# all seven genuine** - flask's `reqcontext.rst` and `patterns/jquery.rst` ("Obsolete, see …
 # instead"), a superseded ADR in gsd-core, and four wekan migration records. Three separate
 # repositories, which made this the easiest of the three to take.
 #
@@ -287,12 +287,12 @@ def declares_removed(text: str) -> bool:
     return any(TOMBSTONE.match(line) or RETIRED_LABEL.match(line) or declares_done(line) for line in lede)
 
 
-# A code block can be shown precisely BECAUSE it is wrong — the API you are migrating off,
+# A code block can be shown precisely BECAUSE it is wrong - the API you are migrating off,
 # the anti-example, the "before" of a before-and-after. Judging it inverts the tool: the
 # passage is correct exactly when the code in it does not work.
 #
 # `plaid/plaid-python`'s README has five of these under `#### Client initialization`, each
-# introduced by a line reading `From:`, showing `from plaid import Client` — the pre-8.0.0
+# introduced by a line reading `From:`, showing `from plaid import Client` - the pre-8.0.0
 # interface, removed in August 2021 and shown so an upgrading reader recognises it. This
 # reported that README as contradicting its code. Filing it would have been a wrong pull
 # request against a payments company.
@@ -307,11 +307,11 @@ def declares_removed(text: str) -> bool:
 #
 #     33  the superseded side   Before: / Old code: / From: / Old: / Instead of: / Old example:
 #     20  the CURRENT side      After: / New code: / New: / New setting: / Now we have:
-#      1  a false match         `### From repository root:` — a heading naming a directory
+#      1  a false match         `### From repository root:` - a heading naming a directory
 #
 # So the rule takes the superseded side only. Matching `After:` too would have silenced
-# twenty blocks of live, correct, checkable code — the exact over-correction that makes a
-# checker useless — and headings are excluded, which is what removes the single false match.
+# twenty blocks of live, correct, checkable code - the exact over-correction that makes a
+# checker useless - and headings are excluded, which is what removes the single false match.
 #
 # **`Deprecated:` is deliberately NOT here**, for the reason `TOMBSTONE` already gives:
 # deprecated is not removed. A deprecated API still exists, still makes promises, and still
@@ -326,7 +326,7 @@ FENCE = re.compile(r"^\s*(?:```|~~~)")
 def superseded_lines(text: str) -> frozenset[int]:
     """Line numbers inside a code block that the prose above labels as superseded.
 
-    Scope is one block, reached within two lines of the label — deliberately tight. A
+    Scope is one block, reached within two lines of the label - deliberately tight. A
     before-and-after runs `Before:` block `After:` block, so a rule that ran further than
     the next fence would swallow the half that is current and correct.
     """
@@ -396,13 +396,13 @@ def opts_out(text: str) -> bool:
 def suppressed_lines(text: str) -> frozenset[int]:
     """Line numbers covered by a `<!-- docproof: skip -->` marker.
 
-    Documentation is full of paths that are illustrations rather than claims —
-    *"suppose your entry point is `src/pkg/main.py`"* — and no amount of pattern matching
+    Documentation is full of paths that are illustrations rather than claims -
+    *"suppose your entry point is `src/pkg/main.py`"* - and no amount of pattern matching
     separates a hypothetical from an assertion. This README's own examples were reported
     as drift the first time it checked itself, which is how the need for this was found.
 
     A marker covers the paragraph it introduces: from its own line to the next blank
-    line. Paragraph scope rather than whole-file scope on purpose — a marker that
+    line. Paragraph scope rather than whole-file scope on purpose - a marker that
     silences a document forever is one nobody notices has outlived its reason.
     """
     lines = text.split("\n")

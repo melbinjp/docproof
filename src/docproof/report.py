@@ -46,8 +46,8 @@ class Report:
         """Silent outcomes whose silence history could not explain away.
 
         Measured over 53 public repositories, failing on *every* silence fired five
-        alarms of which one was real. So only the classes with a receipt fail the run —
-        REGRESSED and TREE_MISMATCH — while NEVER and STOPPED are said quietly. An
+        alarms of which one was real. So only the classes with a receipt fail the run -
+        REGRESSED and TREE_MISMATCH - while NEVER and STOPPED are said quietly. An
         unclassified silence (None) stays alarming: an Outcome built without asking
         history keeps the old strict behaviour rather than acquiring a pass.
         """
@@ -56,8 +56,8 @@ class Report:
     @property
     def exit_code(self) -> int:
         """Non-zero when a claim is contradicted, or when a check demonstrably stopped
-        checking. Silence that history explains — never made such claims, or stopped on
-        purpose — does not gate."""
+        checking. Silence that history explains - never made such claims, or stopped on
+        purpose - does not gate."""
         return 1 if self.broken or self.stopped_checking else 0
 
     def _silence_line(self, outcome: Outcome) -> str:
@@ -77,7 +77,7 @@ class Report:
                 f'[tool.docproof] disable = ["{outcome.verifier}"].'
             )
         marker = WARN if verdict.alarming or verdict.kind is Silence.UNKNOWN else DASH
-        return f"{marker} {outcome.verifier}: found nothing to check — {verdict.detail}."
+        return f"{marker} {outcome.verifier}: found nothing to check - {verdict.detail}."
 
     def render(
         self,
@@ -131,7 +131,7 @@ class Report:
 
         for outcome in self.outcomes:
             if not outcome.applicable:
-                lines.append(f"{DASH} {outcome.verifier}: not applicable — {outcome.reason}")
+                lines.append(f"{DASH} {outcome.verifier}: not applicable - {outcome.reason}")
                 continue
             if outcome.silent:
                 lines.append(self._silence_line(outcome))
@@ -181,7 +181,7 @@ class Report:
                 lines.append("=" * 20)
                 for finding in sorted(skips, key=lambda f: (str(f.claim.doc), f.claim.line)):
                     lines.append(
-                        f"  {finding.claim.where(root)}  `{finding.claim.subject}` — {finding.detail}"
+                        f"  {finding.claim.where(root)}  `{finding.claim.subject}` - {finding.detail}"
                     )
 
         lines.append("")

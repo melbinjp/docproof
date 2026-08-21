@@ -1,5 +1,5 @@
 """What `from pkg import Thing` in a document promises, checked against what the package
-actually defines — without ever importing it, for the same reason `project.py` gives for
+actually defines - without ever importing it, for the same reason `project.py` gives for
 everything else here: importing arbitrary code runs its module-level side effects, which
 is a strange thing for a linter to do to someone's CI.
 
@@ -9,13 +9,13 @@ has three, because Python has three ways to make `from pkg import name` succeed 
 `name` ever being written down as a binding in `pkg`'s own source:
 
 1. **Implicit submodule import.** `from PIL import Image` works because `PIL/Image.py`
-   exists, whether or not `PIL/__init__.py` ever imports it — the `from` statement
+   exists, whether or not `PIL/__init__.py` ever imports it - the `from` statement
    imports the submodule as a side effect of the attribute lookup failing. The first
    pass of this probe reported `PIL.Image`, `attrs.validators`, `rich.pretty`,
    `scrapy.signals` and `datasette.tracer` as broken. All five were wrong, and all five
    share this one shape.
 2. **PEP 562 `__getattr__`, and its pre-562 equivalent.** A module can define
-   `def __getattr__(name):` and answer for names that do not exist until asked —
+   `def __getattr__(name):` and answer for names that do not exist until asked -
    pydantic's public API is built this way. pygments predates PEP 562 and gets the same
    effect by swapping `sys.modules[__name__]` for an instance of a `types.ModuleType`
    subclass whose `__getattr__` looks names up in a table. Both make "name not found"
@@ -26,7 +26,7 @@ has three, because Python has three ways to make `from pkg import name` succeed 
 
 Measured on the corpus: **1,859 own-package import claims, 1,428 statically resolved,
 430 landed in one of the three categories above, and exactly one genuine disagreement**
-— which turned out to be marshmallow's own upgrade guide illustrating a class it removed
+- which turned out to be marshmallow's own upgrade guide illustrating a class it removed
 in 3.0, fixed by widening `config.is_historical` rather than by this file.
 `work/docproof-sweep/probe_symbols.py` is the measurement, kept for the next repository
 that breaks one of these three assumptions.
@@ -106,9 +106,9 @@ def _collect_module_bindings(module: ast.Module) -> tuple[set[str], bool, bool]:
     """Every name a module binds at its own top level; whether a `*` import taints it;
     whether something makes it answer dynamically for names this cannot see.
 
-    Walks into `if`, `try` and `with` bodies at module level — a name bound in only one
+    Walks into `if`, `try` and `with` bodies at module level - a name bound in only one
     branch of a version- or platform-guarded import is still a real name once that
-    branch runs — but never into a `def` or `class` body, whose locals are not module
+    branch runs - but never into a `def` or `class` body, whose locals are not module
     attributes.
     """
     names: set[str] = set()
@@ -174,7 +174,7 @@ def _built_extension_modules(project: Project) -> set[str]:
     """Dotted names of modules this project BUILDS rather than writes as `.py`.
 
     **Why this is not an edge case.** `temporalio.bridge.temporal_sdk_bridge` is a Rust
-    module. It appears in no `.py` file and, in a fresh clone, as no file at all — it comes
+    module. It appears in no `.py` file and, in a fresh clone, as no file at all - it comes
     into existence when maturin compiles it. Judging by the source tree alone, this called
     the Temporal SDK's own README broken for importing it.
 
@@ -240,7 +240,7 @@ class DocumentedSymbols(Verifier):
     name = "symbols"
     describes = "the names the documentation imports from this project's own package"
 
-    # Twelve of forty measured repositories document no own-package import at all —
+    # Twelve of forty measured repositories document no own-package import at all -
     # not broken, just not a claim every project makes. Same shape as `versions`.
     silence_is_signal = False
 

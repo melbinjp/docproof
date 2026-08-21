@@ -1,8 +1,8 @@
 """A real git repository per test, because the checker's truth source is a real one.
 
 `vcs.Git` shells out to git and asks the index what the project ships. Faking that away
-would test a mock's opinion of git rather than git's. These fixtures are cheap — an empty
-`git init` and one commit — and they mean every assertion about tracked, ignored and
+would test a mock's opinion of git rather than git's. These fixtures are cheap - an empty
+`git init` and one commit - and they mean every assertion about tracked, ignored and
 missing paths is checked against the tool that actually decides it.
 """
 
@@ -33,7 +33,7 @@ def _git(repo: Path, *args: str, when: str | None = None) -> None:
 
 # Fixture history has to be spread across real time, not compressed into whatever second
 # the test runs in. `Git.claim_introduced_after` compares author dates, and commits made
-# in the same second compare equal — so a same-second fixture cannot express "the document
+# in the same second compare equal - so a same-second fixture cannot express "the document
 # said this before the file was deleted" at all, and every test of that rule silently
 # asserts nothing. This bit the suite once already: a deletion test passed for a year
 # while its README was committed on the wrong side of the removal.
@@ -69,14 +69,14 @@ def make_repo(tmp_path: Path) -> Callable[..., Path]:
 
         `documented_before` lands in the SAME first commit as `deleted`, so its claims
         exist before the removal. Ordinary `files` are committed last, which means a
-        document passed there mentions a deleted path only *after* it was already gone —
+        document passed there mentions a deleted path only *after* it was already gone -
         an example, by `Git.claim_introduced_after`. Real drift is a document that was
         true when written and was broken by a later commit, and that is a different
         history, not a different sentence. A fixture that cannot build both can only
         test one of them, and this one silently only tested the wrong one.
 
         `shallow` hands back a depth-1 clone of the built repository instead of the
-        repository itself — a real shallow checkout, because "this clone has no
+        repository itself - a real shallow checkout, because "this clone has no
         history" is a state git defines and only git can produce.
         """
         counter["n"] += 1

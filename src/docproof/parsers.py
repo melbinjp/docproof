@@ -8,7 +8,7 @@ answer to flags this never saw.
 
 That distinction decides what may be reported. A documented flag found in the set is
 confirmed. A documented flag *not* in the set is only drift if the set is known to be
-complete — otherwise the honest answer is "I could not tell", and the reason is the
+complete - otherwise the honest answer is "I could not tell", and the reason is the
 incompleteness itself.
 
 So every result carries `complete`, and `complete` is false the moment anything is seen
@@ -162,8 +162,8 @@ def argparse_flags(project: Project) -> FlagSet:
     """Every long or short option this project's argparse code names literally.
 
     Subparsers are unioned into one set rather than tracked per command. That
-    over-approximates — an option valid only on one subcommand will confirm a document
-    that attaches it to another — and the direction is deliberate: over-approximating
+    over-approximates - an option valid only on one subcommand will confirm a document
+    that attaches it to another - and the direction is deliberate: over-approximating
     turns a possible finding into a missed one, never into a wrong one.
     """
     flags = FlagSet()
@@ -190,7 +190,7 @@ def argparse_flags(project: Project) -> FlagSet:
         # click option in its documentation came back contradicted.
         flags.incomplete(
             "no argparse parser was found in this project, so its command line is built "
-            "with something this cannot read — click, typer, cleo or a hand-rolled parser"
+            "with something this cannot read - click, typer, cleo or a hand-rolled parser"
         )
     for command, package in _console_script_packages(project):
         elsewhere = _built_with_something_else(project, package)

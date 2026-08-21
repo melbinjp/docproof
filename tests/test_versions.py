@@ -2,8 +2,8 @@
 
 Every test here is named for something the forty-repo measurement produced. The rule was
 derived from that data rather than invented and then defended, and the two cases that
-matter most are `test_the_datasette_case` — the single genuine contradiction in the whole
-corpus — and `test_the_subject_must_not_reach_across_lines`, which is the bug that made
+matter most are `test_the_datasette_case` - the single genuine contradiction in the whole
+corpus - and `test_the_subject_must_not_reach_across_lines`, which is the bug that made
 the first implementation skip it.
 """
 
@@ -86,7 +86,7 @@ def test_agreement_holds(tmp_path: Path) -> None:
 def test_a_pronoun_subject_is_not_the_project(tmp_path: Path) -> None:
     """black's README: "It requires Python 3.10".
 
-    "It" almost certainly does mean black — and resolving that is exactly the guess this
+    "It" almost certainly does mean black - and resolving that is exactly the guess this
     tool refuses to make. Rewording a sentence makes a check skip; that is the property
     that lets it be a required gate.
     """
@@ -218,7 +218,7 @@ def test_the_cohere_case_legacy_poetry_extras_are_real(tmp_path: Path) -> None:
     Reading only `[project.optional-dependencies]`, this called `pip install 'cohere[oci]'`
     broken because the project "declares no optional-dependencies at all". The published
     cohere 7.0.8 carries `oci<3.0.0,>=2.165.0; extra == "oci"` in `requires_dist`, so the
-    command works — the tool invented a contradiction in a company's README.
+    command works - the tool invented a contradiction in a company's README.
 
     An invented contradiction costs more than a missed one. A missed one is silence; this
     one is a confident sentence about a table, and a reader who opens `pyproject.toml`
@@ -230,7 +230,7 @@ def test_the_cohere_case_legacy_poetry_extras_are_real(tmp_path: Path) -> None:
 
 
 def test_an_undeclared_extra_still_breaks_under_legacy_poetry(tmp_path: Path) -> None:
-    """Reading a second table must not turn the check off — recall stays where it was."""
+    """Reading a second table must not turn the check off - recall stays where it was."""
     found = check(build(tmp_path, "```\npip install 'cohere[secure]'\n```\n", COHERE))
     assert [(s, v) for s, v, _ in found] == [("secure", Verdict.BROKEN)]
     assert "[tool.poetry.extras]" in found[0][2]
@@ -275,7 +275,7 @@ def test_saying_nothing_is_not_a_failure_here(tmp_path: Path) -> None:
 
     For `paths`, silence means the extraction has stopped working and failing is right.
     For this verifier it means the project simply never made the claim, and failing would
-    turn half a healthy corpus red — the exact false alarm the tool exists to prevent,
+    turn half a healthy corpus red - the exact false alarm the tool exists to prevent,
     aimed at its own users.
     """
     repo = build(tmp_path, "A README with nothing to say about installing.\n")

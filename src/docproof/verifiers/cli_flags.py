@@ -9,7 +9,7 @@ rather than about flags:
 
 * **The command has to be this project's.** `pip install --upgrade prog` documents pip's
   option. The first word of the line decides it, matched against the console scripts the
-  project declares in its own `pyproject.toml` — so attribution is derived from the
+  project declares in its own `pyproject.toml` - so attribution is derived from the
   project, not from its name or a guess.
 * **The set of known options has to be provably complete.** `parsers.argparse_flags`
   answers that honestly and usually says no: a parser built in a loop, or handed to a
@@ -43,7 +43,7 @@ IMPLICIT = frozenset({"--help"})
 
 
 def options_in(line: str) -> Iterator[str]:
-    """Option names in a command line — and nothing that merely looks like one.
+    """Option names in a command line - and nothing that merely looks like one.
 
     pipx's docs carry `pipx install pycowsay --pip-args="--no-cache-dir"`. Scanning that
     line with a regex finds `--no-cache-dir` and reports that pipx does not define it,
@@ -84,7 +84,7 @@ def demonstrated_failures(span: Span) -> set[str]:
     """Commands in a transcript whose own recorded output is an error message.
 
     A transcript is prompt lines interleaved with what the program printed. Grouping each
-    command with the output beneath it — up to the next prompt — is enough to tell a
+    command with the output beneath it - up to the next prompt - is enough to tell a
     worked example from a warning about what not to type.
     """
     if not span.fenced:
@@ -224,13 +224,13 @@ class DocumentedFlags(Verifier):
             return self.skip(
                 claim,
                 f"the option list read from the source is not known to be complete, so an "
-                f"option missing from it is not evidence of anything — {known.reasons[0]}",
+                f"option missing from it is not evidence of anything - {known.reasons[0]}",
             )
 
         # argparse accepts any unambiguous abbreviation unless `allow_abbrev=False`, so a
         # documented `--dry` is a working way to write `--dry-run` and not a broken claim.
         # Found by pipx documenting `--py`, which matches three of its options and is
-        # therefore genuinely refused — the prefix rule has to count, not just match.
+        # therefore genuinely refused - the prefix rule has to count, not just match.
         expansions = [name for name in known.names if name.startswith(claim.subject)]
         if len(expansions) == 1:
             return self.holds(claim, f"an unambiguous abbreviation of {expansions[0]}")

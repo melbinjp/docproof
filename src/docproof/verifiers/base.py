@@ -37,7 +37,7 @@ class Document:
     Kept separate from `suppressed` rather than merged into it, because the two silences
     are not the same kind. A marker is the author opting out and knowing they did. This is
     the tool deciding on its own, and a rule nobody asked for that quietly drops blocks
-    would go wrong invisibly — so the CLI prints where it fired.
+    would go wrong invisibly - so the CLI prints where it fired.
     """
 
     def silenced(self, line: int) -> bool:
@@ -61,7 +61,7 @@ class Verifier(ABC):
     False for a claim type most projects simply do not make. Measured on the forty-repo
     corpus: twenty of them document neither a Python requirement nor an install extra,
     and nothing is wrong with any of them. Treating that as breakage would fail half a
-    healthy sample — the same false alarm this tool exists to prevent, aimed at its own
+    healthy sample - the same false alarm this tool exists to prevent, aimed at its own
     users. A verifier that sets this False owes the reader visible skips instead, so that
     drift still has somewhere to show up.
     """

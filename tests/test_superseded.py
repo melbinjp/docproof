@@ -3,7 +3,7 @@
 Every case here comes from `mind/work/docproof-sweep/measure_supersede.py`, which read the
 hundred-repo corpus rather than guessing: 54 label-then-block sites, 33 on the superseded
 side, 20 on the current side, 1 false match. The two that matter are
-`test_the_plaid_case` — the false positive that produced this rule — and
+`test_the_plaid_case` - the false positive that produced this rule - and
 `test_the_after_half_is_still_judged`, which is the over-correction it must not become.
 """
 

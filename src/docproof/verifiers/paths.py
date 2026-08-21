@@ -12,12 +12,12 @@ That rule was arrived at twice, and both times by running the thing rather than 
 about it. Two versions of this file have been wrong:
 
 1. **"Does this path exist on disk."** Every finding it produced on real repositories was
-   a false positive — `build/outputs/`, `.venv/bin/activate`, a runtime database. All
+   a false positive - `build/outputs/`, `.venv/bin/activate`, a runtime database. All
    three documents were correct; existence was the wrong question.
 2. **"Is it absent under a tracked directory."** Better, and still wrong for a reason
    twenty public Python projects made obvious: `src/`, `tests/` and `docs/` exist in
    almost every repository, so a tracked ancestor is nearly no evidence at all. That
-   version produced **187 findings across twenty repos and every single one was wrong** —
+   version produced **187 findings across twenty repos and every single one was wrong** -
    click telling readers to create `src/hello/__init__.py` in *their* project, flask's
    tutorial having them write `tests/test_factory.py`, fastapi's release notes correctly
    describing a directory that moved four versions ago.
@@ -139,7 +139,7 @@ def looks_like_a_repo_path(text: str) -> bool:
 
 
 # A transcript: a prompt, then whatever the program printed. `>>> ` is the Python one and
-# it matters as much as `$ ` — requests' quickstart shows a traceback whose frames name
+# it matters as much as `$ ` - requests' quickstart shows a traceback whose frames name
 # `requests/models.py`, a file that really did move to `src/` in 2023. The traceback is
 # what the program printed, not a claim about where the file lives, and without `>>>` in
 # this pattern the block was not a transcript and every line of it read as a command.
@@ -155,7 +155,7 @@ CREATES = re.compile(r"^(?:sudo\s+)?(?:touch|mkdir)\b")
 #
 # `CREATES` catches `$ touch tests/__init__.py`. It does not catch hypothesis's
 # `CONTRIBUTING.rst:12`, *"2. Create ``hypothesis/RELEASE.rst`` with ``RELEASE_TYPE: patch``"*
-# — a changelog fragment every contributor creates and every release consumes, deleted in
+# - a changelog fragment every contributor creates and every release consumes, deleted in
 # `6384deef4` ("Bump hypothesis version to 6.165.10"). The deletion is the file's lifecycle,
 # and the sentence is an instruction to the reader, not a claim about this repository. pipx
 # (`changelog.d/1234.bugfix.md`) and twine (`changelog/5678.feature.rst`) document the same
@@ -166,8 +166,8 @@ CREATES = re.compile(r"^(?:sudo\s+)?(?:touch|mkdir)\b")
 # across seven creation verbs, of which
 #
 #     58   create   every one an instruction to the reader. No exceptions.
-#    188   add      almost entirely changelog prose — "Add `meta.total` to the search
-#                   endpoint" — about API parameters, not files
+#    188   add      almost entirely changelog prose - "Add `meta.total` to the search
+#                   endpoint" - about API parameters, not files
 #     28   make     changelog prose again: "Make `click.progressbar` work with `codecs.open`"
 #      5   write    mixed, and the mix is the disqualifier: "Write a `sitecustomize.py`"
 #                   creates, "doesn't write `Pipfile.lock`" describes what the code does
@@ -187,7 +187,7 @@ CREATES_IN_PROSE = re.compile(
 #     git show v0.6.0:src/main.rs | bat -l rs
 #
 # `src/main.rs` moved into `src/bin/` in 2019, so it is absent at HEAD and the command is
-# still exactly correct — it reads from tag `v0.6.0`, where the file is. The revision is
+# still exactly correct - it reads from tag `v0.6.0`, where the file is. The revision is
 # stated in the same breath as the path.
 #
 # The pairing is destroyed one line below, by `:` being in the split class: `v0.6.0:src/main.rs`
@@ -202,7 +202,7 @@ CREATES_IN_PROSE = re.compile(
 REV_QUALIFIED = re.compile(r"(?<![\w:/.@-])[\w.\-]+:([\w.\-/]+)(?![\w:])")
 
 # Named rather than inlined, because the inline version of this was written through a shell
-# heredoc and arrived in the file as `r"\x08git\x08"` — `\b` collapsed into a literal
+# heredoc and arrived in the file as `r"\x08git\x08"` - `\b` collapsed into a literal
 # BACKSPACE byte instead of a word boundary. The guard could never match, `qualified` stayed
 # empty, and the rule above was inert. Every reading of the file looked correct, `grep`
 # printed the backspace as nothing, and the suite passed, because a silently-disabled rule
@@ -222,7 +222,7 @@ GIT_COMMAND = re.compile(r"\bgit\b")
 #     [`prow/cmd/deck`]: https://github.com/kubernetes-sigs/prow/tree/main/cmd/deck
 #
 # Prow's source moved to another repository in 2024 and this README documents that move
-# correctly — the label points at the new home. `URLISH` cannot catch it, because the line
+# correctly - the label points at the new home. `URLISH` cannot catch it, because the line
 # where the label is USED contains no URL; the URL is in a definition far below. Without
 # this, the finding is a wrong pull request to kubernetes/test-infra.
 #
@@ -233,7 +233,7 @@ GIT_COMMAND = re.compile(r"\bgit\b")
 #
 # The first version of this skipped the label only where it was USED, on the reasoning that
 # the definition line's target should still be judged. The findings moved from README.md:33
-# to README.md:65 — the definition lines — because what gets extracted there is the LABEL
+# to README.md:65 - the definition lines - because what gets extracted there is the LABEL
 # again, not the target. A link target is bare text rather than backticked, so it was never
 # an inline span and was never being judged in the first place. The reasoning described
 # behaviour the tool does not have, and the fix is to skip the label wherever it appears.
@@ -414,7 +414,7 @@ def candidates(span: Span) -> Iterator[tuple[str, int]]:
     **Program output is not a claim.** black's docs show `black src/ -q` printing
     `error: cannot parse: src/black_primer/cli.py`. That module really was deleted, but
     the sentence is an example of an error message, not an assertion that the file is
-    there — so in a transcript only the lines with a prompt are read.
+    there - so in a transcript only the lines with a prompt are read.
     """
     if not span.fenced:
         text = span.text.strip()
@@ -431,7 +431,7 @@ def candidates(span: Span) -> Iterator[tuple[str, int]]:
             # own project, not claims that they exist in this one. falcon's tutorial
             # says `$ touch tests/__init__.py`; falcon deleted its own
             # tests/__init__.py in 2019, so without this the reader's instruction is
-            # read as the project's drift. Narrow to these two verbs on purpose — a
+            # read as the project's drift. Narrow to these two verbs on purpose - a
             # `cp`/`mv` source can be a path that must already exist, so it is left
             # judged. Measured over 53 repos: 7 such operands, every one a
             # reader-project path, one of them a live false positive.
@@ -464,7 +464,7 @@ class DocumentedPaths(Verifier):
         """Every path claim the documents make, before any judging.
 
         Yields `Claim`s ready for `_judge`, plus the occasional skip `Finding` where the
-        text announced a claim and then withheld it — an ambiguous diagram, a leaf drawn
+        text announced a claim and then withheld it - an ambiguous diagram, a leaf drawn
         above its own root. Those count as the document *making* claims, which is why
         they are yielded rather than dropped: extraction alone is what `history` replays
         over old snapshots to ask whether silence today is new, and a document that has
@@ -526,7 +526,7 @@ class DocumentedPaths(Verifier):
                 if document.silenced(span.line):
                     continue
                 # An inline span is the backticked token alone, so `span.text` was the path
-                # repeated — no surrounding text at all, though `Claim.span` is documented as
+                # repeated - no surrounding text at all, though `Claim.span` is documented as
                 # "the surrounding text it was read out of". That cost a rule: whether the
                 # sentence says CREATE cannot be asked of a string that is only the path.
                 # Fenced blocks keep the token, because there the line is a whole command.
@@ -605,7 +605,7 @@ class DocumentedPaths(Verifier):
 
     def _judge(self, project: Project, claim: Claim, git: Git) -> Finding:
         # `lstrip("./")` strips *characters*, not a prefix, so it turned `.poetry/plugins`
-        # into `poetry/plugins` — a directory poetry really did delete in its src-layout
+        # into `poetry/plugins` - a directory poetry really did delete in its src-layout
         # move, which is how a documented runtime path in the user's own project came back
         # as drift. Strip the one prefix that means "here", and nothing else.
         subject = claim.subject
@@ -626,7 +626,7 @@ class DocumentedPaths(Verifier):
 
         if not git.available:
             # Deliberately does not say *why*. It said "this is not a git checkout" until
-            # it met a real checkout that git refused to read — Windows reporting dubious
+            # it met a real checkout that git refused to read - Windows reporting dubious
             # ownership, on this tool's own repository. Naming a cause it has not
             # established is the failure this tool exists to catch, in its own output.
             return self.skip(
@@ -659,7 +659,7 @@ class DocumentedPaths(Verifier):
         #
         # `PostHog/posthog-python`'s RELEASING.md says changesets must live in
         # `.sampo/changesets/`, and this called it broken because the last file under it was
-        # deleted in `0fc7ec6`. That commit is the release bot CONSUMING a changeset — the
+        # deleted in `0fc7ec6`. That commit is the release bot CONSUMING a changeset - the
         # normal lifecycle of the directory, on a v7.39.1 release four days before the sweep.
         # The sentence is not a claim that files are there; it says where `sampo add` PUTS
         # them, and it will be right again the next time anyone adds one.
@@ -699,7 +699,7 @@ class DocumentedPaths(Verifier):
         #
         #   black    `setup.py`, `setup.cfg`   files black looks for in *your* project,
         #                                      and which black itself dropped in 2022
-        #   flask    `flask.py`                "do not call your file this" — advice
+        #   flask    `flask.py`                "do not call your file this" - advice
         #                                      about the reader's filename, and flask
         #                                      deleted its own in 2010
         #   click    `LICENSE`                 a leaf in a diagram of the reader's app
@@ -715,7 +715,7 @@ class DocumentedPaths(Verifier):
             )
 
         # git says this is not part of the project. Whether that is drift or an
-        # illustration is a question only history can answer — see `Git.deleted`.
+        # illustration is a question only history can answer - see `Git.deleted`.
         if git.shallow:
             return self.skip(
                 claim,
@@ -733,14 +733,14 @@ class DocumentedPaths(Verifier):
             if git.tracks(f"{root}/{subject}"):
                 return self.skip(
                     claim,
-                    f"tracked at `{root}/{subject}` — the repository moved it under "
+                    f"tracked at `{root}/{subject}` - the repository moved it under "
                     f"`{root}/`, and a document naming the import path is still right",
                 )
 
         # The same question one level out: in a monorepo, a documented path is often written
         # relative to the PACKAGE rather than the repository. `CodeWithCJ/SparkyFitness`
         # documents `src/components/LanguageHandler.tsx`, which lives at
-        # `SparkyFitnessFrontend/src/components/LanguageHandler.tsx` — and the next line of
+        # `SparkyFitnessFrontend/src/components/LanguageHandler.tsx` - and the next line of
         # that document spells the full path out, so the short form is shorthand, not drift.
         #
         # 38 of the 134 cloned repositories (28%) have two or more nested package roots, so
@@ -778,14 +778,14 @@ class DocumentedPaths(Verifier):
             return self.skip(
                 claim,
                 "this repository has never had this path, so it is far more likely to be "
-                "an illustration — a file the reader is told to create, or an example — "
+                "an illustration - a file the reader is told to create, or an example - "
                 "than something that moved",
             )
 
         commit, date, subject_line = removal
 
         # **The receipt proves the event, not the relevance.** The repository really did
-        # delete this path — and the sentence may never have been about it. If this line
+        # delete this path - and the sentence may never have been about it. If this line
         # was written after the deletion, its author typed the path knowing no such file
         # was here, which makes it an example rather than a claim that rotted. See
         # `Git.line_written_after` for the three public false positives that forced this.
@@ -793,7 +793,7 @@ class DocumentedPaths(Verifier):
             return self.skip(
                 claim,
                 f"this document first mentioned it after {commit} ({date}) removed that "
-                f"path, so whoever wrote it knew the file was not here — an example, not "
+                f"path, so whoever wrote it knew the file was not here - an example, not "
                 f"a claim this repository stopped honouring",
             )
 
@@ -817,7 +817,7 @@ class DocumentedPaths(Verifier):
                 named = ", ".join(f"`{s}`" for s in siblings[:3])
                 more = f" and {len(siblings) - 3} more" if len(siblings) > 3 else ""
                 also = (
-                    f" — but `{moved.rsplit('/', 1)[-1]}` also exists at {named}{more}, "
+                    f" - but `{moved.rsplit('/', 1)[-1]}` also exists at {named}{more}, "
                     f"so read the sentence before taking the paired one"
                 )
             return self.broken(

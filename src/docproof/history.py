@@ -5,25 +5,25 @@ and produced nothing at all. Failing the run on that alone was measured against 
 repositories and fired five times, once rightly. httpx documents its CLI as a screenshot
 and always has; twine's `--repository-url` walked out of its README in 2019 along with
 the workflow it described. Healthy projects are silent for reasons of their own, and an
-alarm that fires on healthy projects gets switched off — after which it is not catching
+alarm that fires on healthy projects gets switched off - after which it is not catching
 the thing it was switched on for.
 
 History tells the cases apart, the same way it tells drift from illustration in
-`verifiers.paths`: extraction — extraction alone, none of the judging — is re-run over
+`verifiers.paths`: extraction - extraction alone, none of the judging - is re-run over
 sampled historical snapshots of the documentation, and today's silence is read against
 what those snapshots said. The four answers, and the one real alarm among them, are
 documented on `model.Silence`.
 
 The tree-mismatch check runs first and is nearly free: one extraction pass over the
 documents *as HEAD records them*. If that is loud while the working tree was silent, no
-amount of history reading matters — the checkout itself is broken, and the first time
+amount of history reading matters - the checkout itself is broken, and the first time
 this check ran it found a real one (a tracked filename NTFS refuses, so the clone had
 been half-empty since clone day and every run against it was judging air).
 
 Sampling is honest about being sampling: HEAD, the root, exponential spacing back from
 HEAD, and twenty evenly spaced points. A claim that lived only between samples is missed.
-That is good enough for the question actually being asked — "is silence this project's
-steady state?" — which no single missed commit can flip.
+That is good enough for the question actually being asked - "is silence this project's
+steady state?" - which no single missed commit can flip.
 """
 
 from __future__ import annotations
@@ -92,7 +92,7 @@ def doc_paths_at(root: Path, commit: str, config: Config) -> list[str]:
     """`docs.find_docs`, restated over a historical tree listing.
 
     Kept in step with `find_docs` by eye rather than by sharing code, because that one
-    walks a filesystem and this one reads `ls-tree` — the same rule (top-level files
+    walks a filesystem and this one reads `ls-tree` - the same rule (top-level files
     plus `docs`/`doc`, documentation suffixes, skip vendored directories) expressed over
     names instead of paths. The `[tool.docproof] docs` extras are honoured with fnmatch,
     which is a superset of pathlib's glob (`*` crosses `/`); for the patterns people
@@ -145,7 +145,7 @@ def documents_from(root: Path, texts: dict[str, str], config: Config) -> list[Do
     """Historical texts filtered exactly as `cli.main` filters the live ones.
 
     The same excludes, the same historical-name rule, the same tombstone and opt-out
-    markers — because the question is "would the run have seen claims", and the run
+    markers - because the question is "would the run have seen claims", and the run
     never sees a changelog.
     """
     documents: list[Document] = []
@@ -168,7 +168,7 @@ def documents_from(root: Path, texts: dict[str, str], config: Config) -> list[Do
 def scripts_at(root: Path, commit: str) -> tuple[set[str], str | None]:
     """The console scripts and project name pyproject declared at `commit`.
 
-    Any failure — no pyproject yet, unparseable TOML, a setup.py era — degrades to
+    Any failure - no pyproject yet, unparseable TOML, a setup.py era - degrades to
     "no extra names", never to an error: the union with today's names still stands.
     """
     try:
@@ -188,7 +188,7 @@ def _extract(
     commands: set[str] | None = None,
     package: str | None = None,
 ) -> list[Claim]:
-    """Everything extraction produced — a skip `Finding` counts, because a document that
+    """Everything extraction produced - a skip `Finding` counts, because a document that
     earned even an explained abstention was making claims."""
     if isinstance(verifier, DocumentedFlags):
         items = verifier.extract(project, documents, commands=commands, package=package)
@@ -201,12 +201,12 @@ def vanished_documents(project: Project, config: Config) -> str | None:
     """Whether "no documentation found" is itself a broken checkout, with the receipt.
 
     The whole-tree case of TREE_MISMATCH: the first broken clone this tool ever found
-    had no documents on disk at all — the checkout had failed on clone day and the run
+    had no documents on disk at all - the checkout had failed on clone day and the run
     that mattered never got past "nothing to prove". So an empty run asks HEAD the same
     question a silent verifier asks it: if HEAD records documents the configuration
     would have admitted and the disk yields none, the checkout is broken, not the docs
-    absent. Anything git cannot answer degrades to None — the plain "nothing to prove"
-    exit — because a directory that was never a repository is the ordinary case here.
+    absent. Anything git cannot answer degrades to None - the plain "nothing to prove"
+    exit - because a directory that was never a repository is the ordinary case here.
     """
     git = Git(root=project.root)
     if not git.available:
@@ -223,7 +223,7 @@ def vanished_documents(project: Project, config: Config) -> str | None:
         return None
     example = project.relative(recorded[0].path)
     return (
-        f"No documentation on disk, but HEAD records {len(recorded)} document(s) — "
+        f"No documentation on disk, but HEAD records {len(recorded)} document(s) - "
         f"e.g. `{example}`. The checkout does not match the repository: look for a "
         f"failed checkout, or a sparse or filtered clone."
     )
@@ -234,8 +234,8 @@ def classify(
 ) -> SilenceVerdict:
     """What this verifier's silence means, with the receipt.
 
-    `documents` are the live documents the run actually checked — already filtered for
-    excludes, historical names and tombstones — because "does the text survive today"
+    `documents` are the live documents the run actually checked - already filtered for
+    excludes, historical names and tombstones - because "does the text survive today"
     has to be asked of what a reader can still reach. twine's `--repository-url` does
     survive in its changelog, and a changelog is the past, labelled as the past.
     """
@@ -300,8 +300,8 @@ def _classify(
             kind=Silence.TREE_MISMATCH,
             alarming=True,
             detail=(
-                f"the documents as HEAD records them yield {len(recorded)} claim(s) — "
-                f"e.g. `{example.subject}` at {project.relative(example.doc)}:{example.line} — "
+                f"the documents as HEAD records them yield {len(recorded)} claim(s) - "
+                f"e.g. `{example.subject}` at {project.relative(example.doc)}:{example.line} - "
                 f"but the files on disk yield none. The checkout does not match the "
                 f"repository: look for a failed checkout, or a sparse or filtered clone"
             ),
@@ -313,7 +313,7 @@ def _classify(
         raise GitReadError("git log named no commits")
     indices = sample_indices(len(commits))
 
-    # Ascending index is newest-first, so the first loud sample is the most recent one —
+    # Ascending index is newest-first, so the first loud sample is the most recent one -
     # exactly the commit whose subjects "does the text survive today" should be asked of.
     loud: tuple[str, str, list[Claim]] | None = None
     todays_commands = set(project.console_scripts)
@@ -368,7 +368,7 @@ def _classify(
                 detail=(
                     f"`{subject}` extracted as a claim at {sha[:9]} ({date}) and still "
                     f"appears at {project.relative(document.path)}:{line}, but extraction "
-                    f"no longer produces it — the documentation's format has defeated the "
+                    f"no longer produces it - the documentation's format has defeated the "
                     f"extraction"
                 ),
             )
@@ -378,7 +378,7 @@ def _classify(
         kind=Silence.STOPPED,
         alarming=False,
         detail=(
-            f"claims of this kind still extracted at {sha[:9]} ({date}) — {examples} — "
+            f"claims of this kind still extracted at {sha[:9]} ({date}) - {examples} - "
             f"and none of those subjects appears in today's documents. The project "
             f"stopped making such claims"
         ),

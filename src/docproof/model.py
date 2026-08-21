@@ -43,7 +43,7 @@ class Verdict(str, Enum):
 class Claim:
     """One checkable assertion a document makes about the project.
 
-    `subject` is the thing being asserted — a flag, a path, a version string — in the
+    `subject` is the thing being asserted - a flag, a path, a version string - in the
     form the verifier will look up. `span` is the surrounding text it was read out of,
     kept verbatim because a finding is only useful if it can quote what it read.
     """
@@ -85,7 +85,7 @@ class Silence(str, Enum):
 
     REGRESSED = "regressed"
     """A subject that used to extract still sits in today's documents, but extraction no
-    longer produces it. The format defeated the extraction — the one case this alarm
+    longer produces it. The format defeated the extraction - the one case this alarm
     exists for. Fails the run."""
 
     TREE_MISMATCH = "tree-mismatch"
@@ -95,7 +95,7 @@ class Silence(str, Enum):
     Fails the run."""
 
     UNKNOWN = "unknown"
-    """History could not answer — a shallow clone, no git, or a verifier whose extraction
+    """History could not answer - a shallow clone, no git, or a verifier whose extraction
     cannot be re-run alone. Reported visibly; whether it fails the run is carried on the
     verdict, not guessed from the kind."""
 
@@ -144,12 +144,12 @@ class Outcome:
     """Whether saying nothing at all means this verifier is broken. See `Verifier`.
 
     Carried on the outcome rather than looked up from the verifier, so a report can be
-    rendered from outcomes alone — which is what the tests, and any future JSON output,
+    rendered from outcomes alone - which is what the tests, and any future JSON output,
     actually hold.
     """
 
     silence: SilenceVerdict | None = None
-    """What this verifier's silence means, once history has been asked — see `history`.
+    """What this verifier's silence means, once history has been asked - see `history`.
 
     None when the outcome is not silent, or when nobody asked. A report treats an
     unclassified silence as alarming, so constructing an Outcome by hand keeps the old
@@ -174,13 +174,13 @@ class Outcome:
         """Applicable, and it found nothing at all to say. A failure, not a pass.
 
         This is the failure mode the whole tool exists to avoid, turned on itself. A
-        verifier whose extraction stops matching — because the docs were restructured,
-        or because a constant moved — goes quiet, and quiet is indistinguishable from
+        verifier whose extraction stops matching - because the docs were restructured,
+        or because a constant moved - goes quiet, and quiet is indistinguishable from
         clean. rigout's own documentation tests hit exactly this: a derivation narrowed
         to one place in the source, the code moved, and the check "skipped itself out of
         existence".
 
-        **No findings at all**, rather than no *judged* findings — and the difference
+        **No findings at all**, rather than no *judged* findings - and the difference
         matters enough that getting it wrong once was a real bug. Reading it as
         `checked == 0` turned requests, attrs and jinja red: each of them had claims,
         every claim was skipped for a stated reason, and nothing was wrong. A tool that
@@ -190,8 +190,8 @@ class Outcome:
 
         **Unless the claim type is one most projects never make.** `silence_is_signal`
         says which, because this alarm only works when the absence of a claim is
-        surprising. Where it is ordinary — twenty of forty public repositories document
-        no Python requirement and no install extra, and none of them is broken — the
+        surprising. Where it is ordinary - twenty of forty public repositories document
+        no Python requirement and no install extra, and none of them is broken - the
         same alarm fails half a healthy corpus and teaches people to switch the tool off.
         """
         return self.applicable and self.silence_is_signal and not self.findings

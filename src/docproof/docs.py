@@ -6,8 +6,8 @@ extraction works on spans, and everything downstream gets a line number with it,
 a finding without a line number makes the reader search for their own bug.
 
 What this deliberately does not do is parse Markdown properly. A full parser would buy
-very little here — the constructs that carry claims are inline code, fenced blocks and
-plain paths — and would buy it at the cost of a dependency and a lot of behaviour that is
+very little here - the constructs that carry claims are inline code, fenced blocks and
+plain paths - and would buy it at the cost of a dependency and a lot of behaviour that is
 hard to explain when it goes wrong. Where this scanner cannot be sure, the rule from
 `model.Verdict.SKIPPED` applies: it yields nothing rather than yielding a guess.
 """
@@ -57,8 +57,8 @@ FENCE_RE = re.compile(
 # Inline code: one or more backticks, the same number closing, no blank line between.
 INLINE_RE = re.compile(r"(?P<ticks>`+)(?P<body>(?:(?!(?P=ticks))[^\n]|\n(?!\n))+?)(?P=ticks)")
 
-# reStructuredText literal blocks. Enormously common in Python documentation — flask,
-# pytest, scrapy and urllib3 all keep their command examples this way — and invisible to
+# reStructuredText literal blocks. Enormously common in Python documentation - flask,
+# pytest, scrapy and urllib3 all keep their command examples this way - and invisible to
 # a markdown-only reader. Missing them was found by this tool's own "checked nothing"
 # rule firing on scrapy, whose docs are full of `scrapy crawl` lines it never saw.
 RST_DIRECTIVE = re.compile(
@@ -79,7 +79,7 @@ class Span:
     line: int
     fenced: bool
     info: str = ""
-    """The fence's info string — `bash`, `python`, `console` — or empty for inline."""
+    """The fence's info string - `bash`, `python`, `console` - or empty for inline."""
 
 
 class LineIndex:

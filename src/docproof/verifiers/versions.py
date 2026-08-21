@@ -1,13 +1,13 @@
 """What the documentation promises about installing, checked against the install metadata.
 
 Two claims, chosen because `pyproject.toml` answers both *completely* rather than
-partially — which is the property the flags verifier had to learn the hard way:
+partially - which is the property the flags verifier had to learn the hard way:
 
 * **"<project> requires Python 3.x."** `requires-python` is the whole answer. If the
   documented minimum is lower than the declared one, `pip install` refuses on exactly the
   versions the document invites, and the reader finds out instead of the author.
 * **`pip install <project>[extra]`.** `[project.optional-dependencies]` is the entire set
-  of extras that exist. An extra outside it is not a subtle disagreement — the install
+  of extras that exist. An extra outside it is not a subtle disagreement - the install
   command in the README does not work.
 
 **The subject rule, which is the only interesting part.** A first pass over forty public
@@ -27,14 +27,14 @@ only when the project's own distribution name is its subject, standing alone.** 
 possessive, not a pronoun, not another package. Re-measured with that rule, eight claims
 were judged, seven held, and the single contradiction was the real one.
 
-The nine sentences it drops are not thrown away — each becomes a skip that names the
+The nine sentences it drops are not thrown away - each becomes a skip that names the
 subject it found instead, so a reader can see that the tool declined rather than missed.
 
 **On silence.** `Outcome.silent` treats "found nothing at all" as breakage, because a
 verifier whose extraction has stopped matching looks exactly like a clean run. That
 premise holds for a claim type every project makes. It does not hold here: of forty
 repositories, twenty document neither a Python requirement nor an install extra, and they
-are not broken — they simply do not make the claim. Turning half a corpus red would be the
+are not broken - they simply do not make the claim. Turning half a corpus red would be the
 same false alarm this tool exists to avoid, pointed at its own users. So this verifier
 declares that its silence carries no signal, and pays for it by making every *rejected*
 extraction visible as a skip, which is where extraction drift would actually show up.
@@ -62,16 +62,16 @@ INSTALL_EXTRA = re.compile(
 )
 
 # Any sentence asserting a Python requirement, regardless of what it is about. Used only
-# to find the claims the subject rule then accepts or declines — so that declining is
+# to find the claims the subject rule then accepts or declines - so that declining is
 # visible instead of silent.
 # The subject is **the single token immediately before the verb**, separated by spaces or
 # tabs and never across a line break. An earlier version allowed up to four words and
-# `\s`, and on datasette's README — where `pip install datasette` sits two lines above
-# `Datasette requires Python 3.8 or higher.` — it captured "pip install datasette
+# `\s`, and on datasette's README - where `pip install datasette` sits two lines above
+# `Datasette requires Python 3.8 or higher.` - it captured "pip install datasette
 # Datasette", failed its own name check, and skipped the one true finding in the corpus.
 # A subject rule that reaches backwards past the sentence is not a subject rule.
 #
-# The `` ` `` and `*` around the subject are not decoration to this pattern — a README
+# The `` ` `` and `*` around the subject are not decoration to this pattern - a README
 # almost always writes its own name as `` `project` `` or **project**, and without them
 # this verifier read docproof's own "`docproof` requires Python 3.10 or newer" as having
 # no subject at all and judged nothing. Found by running the tool on itself after making
@@ -125,7 +125,7 @@ class DocumentedVersions(Verifier):
 
         Completeness is the same requirement the flags verifier needs and for the same
         reason: a set that might be incomplete can confirm a documented extra but can
-        never contradict one. `dynamic` is the honest disqualifier — it says in the file
+        never contradict one. `dynamic` is the honest disqualifier - it says in the file
         that the real list is computed elsewhere, at build time, by code this never runs.
 
         **`[project.optional-dependencies]` is not the only place extras are declared, and
@@ -138,7 +138,7 @@ class DocumentedVersions(Verifier):
 
         That is the worst failure this tool has: not a missed contradiction but an invented
         one, against a company's README, in the form of a confident sentence about a table.
-        So the reason string now names the table the answer actually came from — if a third
+        So the reason string now names the table the answer actually came from - if a third
         declaration site turns up, the report says which one was consulted rather than
         implying a file that was never read.
         """
@@ -192,7 +192,7 @@ class DocumentedVersions(Verifier):
                 if normalise(subject) not in variants:
                     yield self.skip(
                         claim,
-                        f"the sentence is about `{subject}`, not `{dist}` — a requirement "
+                        f"the sentence is about `{subject}`, not `{dist}` - a requirement "
                         f"stated for a feature, a dependency or a toolchain is not this "
                         f"project's to keep",
                     )
@@ -206,7 +206,7 @@ class DocumentedVersions(Verifier):
                 ):
                     yield self.skip(
                         claim,
-                        "reads as a supported version rather than a minimum — no `+`, "
+                        "reads as a supported version rather than a minimum - no `+`, "
                         '`>=` or "or newer" to say which',
                     )
                     continue
@@ -237,7 +237,7 @@ class DocumentedVersions(Verifier):
                         claim,
                         f"requires-python = {specifier!r}, so the package installs on "
                         f"Python {shown} and the document claims it needs "
-                        f"{match.group('ver')} — the documentation is stricter than the "
+                        f"{match.group('ver')} - the documentation is stricter than the "
                         f"package it describes",
                     )
 
