@@ -538,6 +538,16 @@ docproof/
 └── tests/
 ```
 
+## Writing about it
+
+Notes from running this against real repositories, including the things it got wrong:
+
+- [A clean verdict over five per cent of a repository is not a clean repository](https://log.wecanuseai.com/p/a-clean-verdict-over-five-per-cent.html)
+  - three ways this tool reported success while blind in one evening, why a translated
+  documentation tree produced twelve false positives, and why every report says what it read.
+
+More at [log.wecanuseai.com](https://log.wecanuseai.com/).
+
 ## License
 
 MIT.
