@@ -333,6 +333,56 @@ def link_targets(text: str, document: Path, root: Path) -> Iterator[tuple[str, i
         yield token, text.count(chr(10), 0, match.start()) + 1
 
 
+LANGUAGE_TAG = re.compile(r"^[a-z]{2,3}(?:-[a-z]{2,8})?$")
+
+
+def locale_sibling(subject: str, doc: str, tracked: frozenset[str]) -> str | None:
+    """The same path under a parallel language tree, when the document has one too.
+
+    **A translated documentation tree is not a copy of the source tree, it is an OVERLAY on
+    it.** FastAPI stages every language build by copying `docs/en/docs` wholesale and then
+    writing the translated files over the top (`scripts/docs.py`: `shutil.copytree(
+    en_docs_source_path, staged_docs_path)`). A page nobody translated is therefore present in
+    every language at build time, and a relative link to it from a translated page resolves.
+
+    Without this rule the checker reports every such link. It reported twelve in FastAPI on the
+    first large repository the link-target feature was pointed at - eleven translations of
+    `help-fastapi.md` linking to `fastapi-people.md` and `newsletter.md`, both deliberately
+    de-translated in 2024 so that one English page stays current. Every one of them works on
+    the live site.
+
+    **The test is structural and needs BOTH halves.** Some component of the claimed path is a
+    language tag, and substituting another tag there yields a file that exists AND a home for
+    the claiming document. One parallel file could be coincidence; the document and its target
+    both living under the same sibling root is a mirrored tree.
+
+    Returns the sibling path, or None. Deliberately NOT extended to versioned doc trees
+    (`docs/v1`, `docs/v2`), where a page present in one version and absent from the next is a
+    real gap rather than a fallback.
+    """
+    parts = subject.split("/")
+    doc_parts = doc.split("/")
+    for index, part in enumerate(parts):
+        if not LANGUAGE_TAG.match(part):
+            continue
+        if index >= len(doc_parts) or doc_parts[index] != part:
+            continue  # the document does not live under the same tree
+        for other in tracked:
+            other_parts = other.split("/")
+            if len(other_parts) != len(parts):
+                continue
+            candidate = other_parts[index]
+            if candidate == part or not LANGUAGE_TAG.match(candidate):
+                continue
+            if other_parts[:index] + other_parts[index + 1 :] != parts[:index] + parts[index + 1 :]:
+                continue
+            # The target exists next door. Does the claiming document, too?
+            doc_next_door = "/".join(doc_parts[:index] + [candidate] + doc_parts[index + 1 :])
+            if doc_next_door in tracked:
+                return other
+    return None
+
+
 def command_span(span: Span) -> bool:
     """Whether a fenced block is a transcript whose non-prompt lines are output."""
     return (
@@ -591,6 +641,18 @@ class DocumentedPaths(Verifier):
 
         if target.exists():
             return self.skip(claim, f"{subject} is present but untracked, so it is not a shipped path")
+
+        # Before asking git what deleted it: a translated docs tree is an overlay, and the
+        # page nobody translated is supplied by the English one at build time. See
+        # `locale_sibling` for the twelve FastAPI false positives that bought this.
+        sibling = locale_sibling(subject, project.relative(claim.doc), git.tracked_files)
+        if sibling:
+            return self.skip(
+                claim,
+                f"`{sibling}` is the same page under a parallel language tree that also "
+                f"holds this document, so this is a translation overlay supplying an "
+                f"untranslated page rather than a path the project stopped shipping",
+            )
 
         # **Git cannot represent an empty directory, so for a path written as a directory,
         # absence from the index is not evidence of deletion.**
