@@ -296,6 +296,43 @@ def inline_link_labels(text: str, document: Path, root: Path) -> set[str]:
     return resolved
 
 
+def link_targets(text: str, document: Path, root: Path) -> Iterator[tuple[str, int]]:
+    """Internal link targets, normalised to repo-relative, as ordinary path claims.
+
+    `inline_link_labels` above said outright that judging targets was "a real feature and this
+    is not it". This is it, and the sample that forced it is `elementor/elementor#37006`:
+    eleven doc paths pointing at files that are gone, of which this tool reported **six**. Three
+    of the five it missed were link targets, and every one was the same broken path it had
+    already flagged a line or two away in backticks.
+
+    **The form it was skipping is the more severe one.** A backticked path that is wrong is a
+    sentence a reader might mistrust. A link target that is wrong is a 404 they click.
+
+    Nothing new is judged here. The target is resolved against the document's own directory,
+    turned into a repo-relative path, and handed to the same `_judge` as any other path claim,
+    which is what supplies "moved to X in commit Y". A target that escapes the repository is
+    dropped rather than guessed at, and so is anything with a scheme.
+    """
+    for match in INLINE_LINK.finditer(text):
+        target = match.group(2).strip().split(" ")[0]
+        if not target or target.startswith(("http://", "https://", "mailto:", "#", "//")):
+            continue
+        if ":" in target.split("/")[0]:
+            continue  # any other scheme - ftp:, file:, tel: - is not ours to resolve
+        target = target.split("#")[0].split("?")[0]
+        if not target:
+            continue  # a pure anchor into this same document
+        base = root if target.startswith("/") else document.parent
+        try:
+            landing = (base / target.lstrip("/")).resolve()
+            token = landing.relative_to(root.resolve()).as_posix()
+        except (ValueError, OSError):
+            continue  # points outside the repository, so there is nothing here to check
+        if not token or token.startswith(".."):
+            continue
+        yield token, text.count(chr(10), 0, match.start()) + 1
+
+
 def command_span(span: Span) -> bool:
     """Whether a fenced block is a transcript whose non-prompt lines are output."""
     return (
@@ -383,7 +420,7 @@ class DocumentedPaths(Verifier):
         over old snapshots to ask whether silence today is new, and a document that has
         always been all ambiguous diagrams has always been loud.
         """
-        seen: set[tuple[str, str]] = set()
+        seen: set[tuple[str, ...]] = set()
         for document in documents:
             lines = document.text.split("\n")
             ref_labels = {m.group(1).strip() for m in REF_DEFINITION.finditer(document.text)}
@@ -490,6 +527,31 @@ class DocumentedPaths(Verifier):
                         line=at,
                         span=source_line if not span.fenced else token,
                     )
+
+            # Link targets, which live in prose rather than in any code span, so the loop
+            # above cannot see them. Same `seen` set and same claim kind: a path is a path
+            # however the document spells it, and the one that is a link is the one a reader
+            # actually clicks. See `link_targets` for the sample that forced this.
+            for token, at in link_targets(document.text, document.path, project.root):
+                if document.silenced(at):
+                    continue
+                # A LINK GETS ITS OWN DEDUP SLOT rather than sharing the backticked one.
+                # In the elementor document that forced this feature, all three broken paths
+                # appear twice - once backticked near the top, once as a link 300 lines down -
+                # and a shared key meant the link was swallowed by the mention. That reads as
+                # "three wrong paths" when six separate lines need editing, and somebody
+                # working from the report would fix three and leave three live 404s behind.
+                link_key = (project.relative(document.path), token, "link")
+                if link_key in seen:
+                    continue
+                seen.add(link_key)
+                yield Claim(
+                    kind="path",
+                    subject=token,
+                    doc=document.path,
+                    line=at,
+                    span=(lines[at - 1] if 0 < at <= len(lines) else token).strip()[:200],
+                )
 
     def _judge(self, project: Project, claim: Claim, git: Git) -> Finding:
         # `lstrip("./")` strips *characters*, not a prefix, so it turned `.poetry/plugins`
