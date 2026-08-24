@@ -538,6 +538,13 @@ docproof/
 └── tests/
 ```
 
+## What it has found
+
+[FINDINGS.md](FINDINGS.md) lists the documentation defects docproof has surfaced in projects
+it does not maintain, fourteen of them merged by the project's own maintainers. The list is
+generated from the live state of each filing rather than kept by hand, and it says plainly what
+the tool found versus what a person noticed while reading its output.
+
 ## Writing about it
 
 Notes from running this against real repositories, including the things it got wrong:
