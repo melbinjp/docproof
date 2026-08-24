@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import os
 import sys
 from collections.abc import Sequence
 from dataclasses import replace
@@ -130,6 +131,49 @@ def survive_a_narrow_console() -> None:
             reconfigure(errors="backslashreplace")
 
 
+def utf8_when_nobody_is_watching() -> None:
+    """A REDIRECT is not a console, and only the console argument justified keeping cp1252.
+
+    `survive_a_narrow_console` fixed the character the codepage CANNOT encode. This is the
+    other half, and it is quieter because nothing raises: cp1252 encodes an accented letter
+    perfectly well, to a single byte that is not valid UTF-8. So on 0.2.2, in a project whose
+    README says `docs/cafe-guide.md` with an acute accent:
+
+        docproof --show-skips > report.txt
+        -> b'  README.md:3  `docs/caf\\xe9-guide.md` - this repository has never had...'
+        -> UnicodeDecodeError: invalid continuation byte at position 637
+
+    The report is corrupt to every UTF-8 reader, which is a CI log viewer, an editor, or the
+    next tool in the pipe. Removing all 202 em dashes in 0.2.2 fixed the characters WE emit;
+    it could not fix the ones we QUOTE, and quoting the document back is the whole job.
+
+    Deliberately narrower than "force UTF-8", because that decision was already made and made
+    correctly one function up: on a real console, forcing UTF-8 trades a crash for mojibake,
+    and Windows hands a genuine console to `WriteConsoleW` where Unicode already works. So
+    this fires only when stdout is NOT a tty - a file, a pipe, a CI log - where there is no
+    terminal to garble and the consumer is overwhelmingly a UTF-8 reader.
+
+    `PYTHONIOENCODING` wins outright. A user who pinned an encoding has said what they want,
+    and `tests/test_output_encoding.py` pins cp1252 through a pipe to test the console path -
+    which this would otherwise silently convert into a test of something else.
+    """
+    if os.environ.get("PYTHONIOENCODING"):
+        return
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        try:
+            if stream.isatty():
+                continue
+            if (getattr(stream, "encoding", "") or "").lower().replace("-", "") == "utf8":
+                continue
+        except (AttributeError, ValueError, OSError):
+            continue
+        with contextlib.suppress(ValueError, OSError, LookupError):
+            reconfigure(encoding="utf-8", errors="backslashreplace")
+
+
 TOP_DIRECTORIES = 5
 SET_ASIDE_NAMES = 10
 
@@ -223,6 +267,7 @@ def report_set_aside(historical: list[str], disclaimed: dict[tuple[str, str], li
 
 def main(argv: Sequence[str] | None = None) -> int:
     survive_a_narrow_console()
+    utf8_when_nobody_is_watching()
     args = build_parser().parse_args(argv)
 
     if args.list:
