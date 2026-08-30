@@ -80,6 +80,26 @@ a full clone reports `1 broken` and exits 1, and the same repository at `--depth
 permanently green gate that had judged nothing, so it fails with the one-line fix in the
 message instead. [Requirements](#requirements) has the rest.
 
+**Pin it to a commit rather than to the tag.** `melbinjp/docproof@v0.2.3` is a tag, and a
+tag can be repointed after you have read the code behind it. Anyone able to push here,
+including anyone who takes this account, could move `v0.2.3` onto something else and your
+CI would run it without a diff for you to review:
+
+```yaml
+- uses: melbinjp/docproof@a3b2fbc0513d20836a8a1f273009b16ac97e00d9   # v0.2.3
+```
+
+Raised by [@fschutt](https://github.com/fschutt) while security-reviewing this action
+before putting it into `azul`'s CI, which is the right order to do those two things in.
+
+**It only reads.** A run shells out to `git` for history and opens documents for reading,
+and that is the whole of its contact with your tree: nothing written, nothing moved,
+nothing created, including inside the project being checked. So it is safe ahead of any
+step that expects a clean checkout. That is not a promise in prose. `tests/test_read_only.py`
+runs a full check over a real repository with real drift and fails if one tracked byte
+changed, or one untracked file appeared, afterwards. The guarantee is there because
+@fschutt asserted it in `azul`'s CI before this repository had documented or tested it.
+
 Adopting on a project that already has drift, which is most of them:
 `fail-on-findings: false` prints every finding and leaves the run green while you work
 through them. [What that suppresses, and the one thing it
