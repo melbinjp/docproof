@@ -69,7 +69,7 @@ clean bill of health nobody examined is worth less than nothing.
 - uses: actions/checkout@v4
   with:
     fetch-depth: 0        # docproof needs history to tell drift from an example
-- uses: melbinjp/docproof@v0.2.3
+- uses: melbinjp/docproof@v0.2.4
 ```
 
 **Both lines are load-bearing, and the action refuses to run without the first.**
@@ -80,14 +80,22 @@ a full clone reports `1 broken` and exits 1, and the same repository at `--depth
 permanently green gate that had judged nothing, so it fails with the one-line fix in the
 message instead. [Requirements](#requirements) has the rest.
 
-**Pin it to a commit rather than to the tag.** `melbinjp/docproof@v0.2.3` is a tag, and a
+**Pin it to a commit rather than to the tag.** `melbinjp/docproof@v0.2.4` is a tag, and a
 tag can be repointed after you have read the code behind it. Anyone able to push here,
-including anyone who takes this account, could move `v0.2.3` onto something else and your
-CI would run it without a diff for you to review:
+including anyone who takes this account, could move it onto something else and your CI would
+run that without a diff for you to review. Resolve the tag once, and pin what it resolved to:
+
+```bash
+git ls-remote https://github.com/melbinjp/docproof refs/tags/v0.2.4
+```
 
 ```yaml
-- uses: melbinjp/docproof@a3b2fbc0513d20836a8a1f273009b16ac97e00d9   # v0.2.3
+- uses: melbinjp/docproof@<the 40 characters that printed>   # v0.2.4
 ```
+
+This file cannot print that SHA for you: the commit it would name is the one this file is
+in. An earlier version of this section hardcoded one anyway, which pinned the release before
+it and would have gone stale at every release after.
 
 Raised by [@fschutt](https://github.com/fschutt) while security-reviewing this action
 before putting it into `azul`'s CI, which is the right order to do those two things in.
@@ -381,7 +389,7 @@ A gate that fails on day one gets removed on day one. `--exit-zero` prints the f
 leaves the run green, so you can adopt this while you are still working through them:
 
 ```yaml
-- uses: melbinjp/docproof@v0.2.3
+- uses: melbinjp/docproof@v0.2.4
   with:
     fail-on-findings: false
 ```
@@ -509,7 +517,7 @@ never existed, so `docproof` reports that and judges nothing rather than guessin
 - uses: actions/checkout@v4
   with:
     fetch-depth: 0        # docproof needs history to tell drift from an example
-- uses: melbinjp/docproof@v0.2.3
+- uses: melbinjp/docproof@v0.2.4
 ```
 
 **The action refuses to run without `fetch-depth: 0`, on purpose.** Measured on
