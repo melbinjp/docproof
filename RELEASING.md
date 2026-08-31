@@ -68,9 +68,13 @@ reused. A mistake in 0.1.0 is corrected by releasing 0.1.1, never by replacing 0
 Deleting the project does not release the name for a fresh start either. This is why the
 trigger is a tag rather than a push to `main`, and why the environment gate exists.
 
-Two parts of `README.md` are written for a package that is not yet on PyPI: the install
-instructions and the note saying so. **Both must change in the commit that ships** — a tool
-that checks documentation against reality should not fail its own check on release day.
+Two parts of `README.md` used to be written for a package that was not yet on PyPI: the
+install instructions and the note saying so. **Both were supposed to change in the commit
+that shipped, and did not.** 0.2.1, 0.2.2 and 0.2.3 all went up while the README still said
+"Not on PyPI yet", so the package page carried a false claim about itself for a week. Fixed
+in 0.2.4. The rule stands and is worth restating: a tool that checks documentation against
+reality should not fail its own check on release day, and this instruction being here was
+not enough to make it happen.
 
 ## What the version number claims
 

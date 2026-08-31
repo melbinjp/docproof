@@ -345,11 +345,8 @@ before writing the rule, and let the disagreements decide what the rule has to a
 
 ## Install and run
 
-**Not on PyPI yet.** From a checkout:
-
 ```bash
-git clone https://github.com/melbinjp/docproof && cd docproof
-pip install -e .
+pip install docproof
 
 docproof                 # check the project you are standing in
 docproof path/to/project
@@ -357,9 +354,12 @@ docproof --show-skips    # and everything it declined to judge, with reasons
 docproof --list          # the available checks
 ```
 
-The `pip install docproof` line goes in when there is something on PyPI to install. A
-tool whose whole argument is that documentation should be checkable does not get to open
-with an instruction that does not work.
+From a checkout instead, which is what you want if you are changing it:
+
+```bash
+git clone https://github.com/melbinjp/docproof && cd docproof
+pip install -e .
+```
 
 To run the suite, which is the thing worth checking before trusting any of the above:
 
@@ -434,7 +434,7 @@ not a promise the project is making.
 silence harmless:
 
 ```
-docproof 0.2.3 - myproject, 6 document(s)
+docproof 0.2.4 - myproject, 6 document(s)
    41 documentation file(s) elsewhere in the tree were NOT read; the default scope is top-level files plus doc/ and docs/
      guides/ 22, website/ 14, handbook/ 4, .github/ 1
      read them too with --docs 'guides/**/*.md' or [tool.docproof] docs = ["guides/**/*.md"]
@@ -519,11 +519,13 @@ cloned at `--depth 1` reports "Nothing contradicted" and exits **0**. Since
 check would hand you a permanently green gate that had judged nothing. It fails with the
 one-line fix in the message instead. CI here runs that refusal as a test.
 
-*This block used to read `pipx run docproof`, which never worked: docproof is not on PyPI,
-so there was nothing for pipx to resolve. It sat here for weeks because nothing was checking
-that the install instructions ran, which is precisely the defect this tool exists to find.
-The `self` job now installs through the action above, so the snippet cannot rot again
-without the build going red.*
+*Both halves of this were wrong once. This block read `pipx run docproof`, and the install
+section above opened by saying the package was not published yet, and neither survived
+docproof actually going up on PyPI on 24 August 2026. A tool whose whole argument is that
+documentation should be checkable does not get to ship an install instruction that does not
+work. The `self` job installs through the action above so the snippet cannot rot again
+without the build going red, and `RELEASING.md` names both places as things the shipping
+commit has to change.*
 
 There are no dependencies at all on Python 3.11+; on 3.10 it installs `tomli` to read
 `pyproject.toml`.
